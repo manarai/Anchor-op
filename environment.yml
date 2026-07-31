@@ -1,0 +1,24 @@
+name: anchor-op
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  # Runtime — required for `import anchorop`.
+  - numpy>=1.24
+  - pandas>=2.0
+  # Real-data helpers — needed for AnnData I/O and the built-in NMF program fit.
+  - anndata>=0.10
+  - scikit-learn>=1.3
+  # Real-data pipeline for the K562 notebook: raw 10x mtx reader, QC,
+  # normalize, HVG. Also pulls in scipy, which anchor-op tolerates but
+  # does not require.
+  - scanpy>=1.10
+  # Notebooks and figures — needed to run examples/04_synthetic_walkthrough.ipynb.
+  - matplotlib>=3.7
+  - jupyter>=1.0
+  - nbconvert>=7.0
+  # Test suite.
+  - pytest>=8.0
+  # Editable install of anchor-op itself lives outside conda so a source edit
+  # is picked up without an env rebuild — see README for the follow-up command.
+  - pip
