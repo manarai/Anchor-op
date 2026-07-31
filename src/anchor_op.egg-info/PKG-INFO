@@ -1,0 +1,215 @@
+Metadata-Version: 2.4
+Name: anchor-op
+Version: 0.1.0
+Summary: Measure identifiable local dynamical actions from Perturb-seq response data.
+Author: Manus AI
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/manarai/anchor-op
+Project-URL: Repository, https://github.com/manarai/anchor-op
+Project-URL: Issues, https://github.com/manarai/anchor-op/issues
+Keywords: single-cell,Perturb-seq,CRISPR,Jacobian,system-identification
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Provides-Extra: nmf
+Requires-Dist: scikit-learn>=1.3; extra == "nmf"
+Provides-Extra: anndata
+Requires-Dist: anndata>=0.10; extra == "anndata"
+Provides-Extra: test
+Requires-Dist: pytest>=8.0; extra == "test"
+Provides-Extra: docs
+Requires-Dist: jupyter>=1.0; extra == "docs"
+Requires-Dist: matplotlib>=3.7; extra == "docs"
+Provides-Extra: all
+Requires-Dist: scikit-learn>=1.3; extra == "all"
+Requires-Dist: anndata>=0.10; extra == "all"
+Requires-Dist: pytest>=8.0; extra == "all"
+Requires-Dist: jupyter>=1.0; extra == "all"
+Requires-Dist: matplotlib>=3.7; extra == "all"
+Dynamic: license-file
+
+# anchor-op
+
+> **A Perturb-seq response is a measured sensitivity; the corresponding Jacobian action is a regularized, explicitly partial inverse.**
+
+`anchor-op` is a Python package for estimating and benchmarking **identifiable local dynamical actions** from pooled CRISPRi/CRISPRa single-cell RNA-seq experiments with matched non-targeting controls. It projects expression into a low-dimensional control-derived program space, estimates guide-level settled responses, encodes each perturbation through its program loading and observed knockdown efficiency, and returns a matrix action together with a non-optional identifiability report.
+
+The package is designed around genome-scale Perturb-seq resources such as the K562 and RPE1 experiments published by Replogle *et al.*, whose public portal provides processed single-cell and pseudobulk AnnData data.[1] It supports control-only NMF / seed-ensemble cNMF-style program construction, consistent with the use of matrix factorization to resolve expression programs and their cellular usages.[2]
+
+## What is measured
+
+For program coordinates `z = Wᵀe`, a settled guide perturbation is modeled as a constant input shift:
+
+```text
+Δz_g = -J⁻¹u_g,      S = -J⁻¹U,      J S = -U.
+```
+
+The original proposal used `J = -U S⁺`. The implementation makes the crucial partial-identification condition explicit. With `P_X = SS⁺`, the experiment identifies
+
+```text
+J P_X = -U S⁺,     X = range(S).
+```
+
+The package therefore distinguishes the **actuated input subspace** `range(U)` from the **identified response/domain subspace** `range(S)`. A zero extension outside `X` is not silently called a full cellular Jacobian. `MeasuredOperator.J` is available only when the effective response rank equals the full program dimension; otherwise the user works with `MeasuredOperator.identified_action` and projected comparisons. This prevents unsupported eigenvalue or hyperbolicity claims under incomplete excitation.
+
+| Returned object | Interpretation | Always available? |
+|---|---|---:|
+| `S` | Guide-level steady-state response matrix | Yes |
+| `U` | Guide-level perturbation input encoding | Yes |
+| `identified_action` | `J P_X = -U S⁺`, conditional on the chosen regularizer | Yes, with report |
+| `report` | Rank, projectors, singular spectrum, conditioning, guide filters, regularization path, and optional guide-bootstrap uncertainty | Yes |
+| `J` | Full operator | Only when full effective-domain rank is identified |
+
+## Installation
+
+### Lightweight (pip only)
+
+```bash
+python -m pip install -e '.[test]'
+```
+
+The lightweight core depends only on NumPy and pandas. `anndata` and scikit-learn remain optional so that a synthetic validation suite can run without a large single-cell environment.
+
+### Conda environment (recommended for real data)
+
+An `environment.yml` at the repo root pins Python 3.11 plus AnnData, scikit-learn, scanpy, matplotlib, Jupyter, and test dependencies used by the real-data protocols (`01_measure_k562.ipynb`) and the synthetic walkthrough (`04_synthetic_walkthrough.ipynb`).
+
+```bash
+conda env create -f environment.yml   # or:  mamba env create -f environment.yml
+conda activate anchor-op
+python -m pip install -e '.[test]'    # editable install of anchor-op itself
+pytest -q                              # verify: 20 passed
+```
+
+**Already have the env from an earlier commit?** Add scanpy without rebuilding:
+
+```bash
+conda activate anchor-op
+conda install -c conda-forge 'scanpy>=1.10'   # or:  pip install 'scanpy>=1.10'
+```
+
+Manual alternative if you prefer to name the packages inline:
+
+```bash
+conda create -n anchor-op -c conda-forge python=3.11 \
+    'numpy>=1.24' 'pandas>=2.0' 'anndata>=0.10' 'scikit-learn>=1.3' \
+    'scanpy>=1.10' 'matplotlib>=3.7' 'jupyter>=1.0' 'pytest>=8.0'
+conda activate anchor-op
+python -m pip install -e '.[test]'
+```
+
+For real data, use a pinned environment and record upstream dataset versions, program-basis seed ensemble, guide filtering, and regularization path.
+
+## Minimal workflow
+
+```python
+import anchorop as ao
+
+# Fit the coordinate system on non-targeting controls only.
+basis = ao.fit_programs(
+    adata,
+    d=50,
+    method="cnmf",
+    control_mask=adata.obs["is_control"].to_numpy(),
+    n_seeds=10,
+)
+
+# Each guide needs an explicit target-gene annotation; targets are never parsed
+# from an arbitrary guide identifier.
+measurement = ao.measure_operator(
+    adata,
+    basis,
+    guide_key="guide",
+    target_key="target_gene",
+    control_label="non-targeting",
+    batch_key="batch",             # optional but recommended when applicable
+    reg="tsvd",
+    reg_param="path",
+    bootstrap=500,
+)
+
+print(measurement.report.to_dict())
+print(measurement.identified_action)  # The measured action J P_X.
+
+# Comparison is always projected to the identified response domain.
+results = ao.compare(
+    measurement,
+    {"celloracle": J_celloracle, "dynamo": J_dynamo, "scjdo": J_scjdo},
+    nulls=("shuffled_edges", "random_init"),
+    n_null=500,
+)
+print(ao.comparison_table(results))
+
+# Full spectra are intentionally unavailable for partial measurements.
+if measurement.report.full_domain_identified:
+    print(measurement.J)
+```
+
+The public low-level API `measure_from_sensitivity(S, U, ...)` is useful for synthetic recovery tests and reproducible upstream pipelines. It returns exactly the same report-bearing object; there is no public unchecked inverse path.
+
+## Scientific safeguards
+
+The code treats the following conditions as analyses to disclose rather than implementation details to hide.
+
+| Safeguard | Package behavior | Interpretation |
+|---|---|---|
+| Matched controls | Refuses data with no non-targeting controls; optionally matches response baselines by batch | Prevents an unqualified perturbation/control contrast |
+| Program coordinate contamination | Fits built-in bases on controls only | Avoids defining coordinates with perturbation-driven programs |
+| Perturbation encoding | Uses `u_g = -κ_g Wᵀδ_g` and drops negligible-loadings | A target gene is not a one-hot program direction |
+| Guide efficacy | Estimates `κ_g` from the target transcript | Filters weak/noninformative knockdowns rather than zero-imputing them |
+| Partial identification | Stores both input and response projectors and blocks full spectra when rank is incomplete | Keeps claims within the experimentally identified domain |
+| Ill-conditioning | Records a full TSVD or Tikhonov path, retained singular directions, and condition number | Makes dependence on regularization inspectable |
+| Uncertainty | Bootstraps guides, not only cells | Reflects guide-level heterogeneity |
+| Linearity | Compares weak and strong knockdown-efficiency bins | Surfaces violation of the local settled-state approximation |
+| Null calibration | Supports shuffled-edge and random-initialization operator nulls | Separates agreement from chance-level resemblance |
+| Archetypes | Fits symmetric operator archetypes with simplex weights and guide-held-out selection of `k` | Avoids treating an arbitrary basis as a biological alphabet |
+
+## Current implementation status
+
+This repository is an **implementation baseline**, not a completed biological benchmark. It contains synthetic recovery and safety tests; it does not claim a K562/RPE1 result, a reference `dim(M)`, or a Phase 2 conclusion before public data are run end-to-end. The Replogle data portal provides processed AnnData resources and a documented route to raw or matrix-formatted data.[3]
+
+| Component | Status |
+|---|---|
+| Control-only program fitting and external basis validation | Implemented |
+| Guide-level `S`, `κ_g`, `U`, TSVD/Tikhonov inverse, report, and guide bootstrap | Implemented |
+| Projected inferred-versus-measured comparison with declared nulls | Implemented |
+| Spectral and symmetric-operator archetypes; transfer test | Implemented |
+| Public K562/RPE1 notebook execution and result table | Deferred until data and pinned environment are supplied/run |
+| Shared `scjdo.operator` metric substrate | Release blocker: sibling repository was not available in this workspace |
+| Phase 4 constrained anchored inference | Deliberately gated on preregistered Phase 2 above-null evidence |
+
+Read [`STRATEGY_REVIEW.md`](STRATEGY_REVIEW.md) for the detailed mathematical correction, experimental risk register, and release gates. Read [`PREREGISTRATION.md`](PREREGISTRATION.md) before any Phase 2 benchmark is executed.
+
+## Scope and non-goals
+
+`anchor-op` refuses program spaces above `d = 200` and warns above `d = 100`. It does not perform gene regulatory network inference, trajectory inference, or drift-field training. It consumes imported matrices from tools such as CellOracle, dynamo, or scJDO only after they have been transformed into the same labeled program coordinates.
+
+The package cannot establish that a post-perturbation snapshot is at a common steady state. It reports evidence for or against a local linear approximation using the supplied cells and guides. A successful analysis must state the timepoint, guide filtering, control definition, response rank, regularization path, and linearity result.
+
+## Development
+
+```bash
+python -m pip install -e '.[test]'
+pytest -q
+```
+
+The suite includes `test_ACCEPTANCE_` synthetic recovery, partial-identification orientation, regularization, safety, null-calibration, and archetype tests. CI runs the suite on supported Python versions.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
+
+## References
+
+[1]: https://pubmed.ncbi.nlm.nih.gov/35688146/ "Replogle et al. (2022), Mapping information-rich genotype-phenotype landscapes with genome-scale Perturb-seq"
+[2]: https://elifesciences.org/articles/43803 "Kotliar et al. (2019), Identifying gene expression programs of cell-type identity and cellular activity with single-cell RNA-Seq"
+[3]: https://gwps.wi.mit.edu/ "Genome-Wide Perturb-Seq data access"
