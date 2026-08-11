@@ -1,0 +1,43 @@
+# Python build and test outputs
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+.coverage
+coverage.xml
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environments and editors
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+
+# Jupyter checkpoints and local notebook outputs
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# Large local single-cell data and derived public-data results
+/data/
+/results/
+*.h5ad
+*.h5
+*.loom
+*.mtx
+*.mtx.gz
+/examples/data/
+/cache/
+*.pkl
+
+
+
+# Delivery artifacts retained outside source control
+/anchor-op-source.zip
+
+# OS artifacts
+.DS_Store

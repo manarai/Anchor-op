@@ -1,0 +1,38 @@
+{
+  "K562_essential": {
+    "n_cells_total": 310385,
+    "n_control_cells": 10691,
+    "n_targets_with_ncells_min": 2021,
+    "median_cells_per_target": 123.0,
+    "sigma_percell_nt": 2.6144649982452393,
+    "sigma_predicted": 0.23573836998185738,
+    "sigma_measured_median": 0.23969199724603074,
+    "sigma_measured_p25": 0.18588753219177934,
+    "sigma_measured_p75": 0.3144790013983067,
+    "ratio_measured_over_predicted": 1.0167712505371003
+  },
+  "RPE1_essential": {
+    "n_cells_total": 247914,
+    "n_control_cells": 11485,
+    "n_targets_with_ncells_min": 2204,
+    "median_cells_per_target": 77.0,
+    "sigma_percell_nt": 2.6787447929382324,
+    "sigma_predicted": 0.30527130079149445,
+    "sigma_measured_median": 0.3517082029696567,
+    "sigma_measured_p25": 0.2408457300164224,
+    "sigma_measured_p75": 0.5387404955006316,
+    "ratio_measured_over_predicted": 1.1521168287282906
+  },
+  "Jost_2020": {
+    "n_cells_total": 23608,
+    "n_control_cells": 2446,
+    "n_targets_with_ncells_min": 26,
+    "median_cells_per_target": 834.5,
+    "sigma_percell_nt": 1.112735390663147,
+    "sigma_predicted": 0.03851933053942957,
+    "sigma_measured_median": 0.03586042835438081,
+    "sigma_measured_p25": 0.02809257325208798,
+    "sigma_measured_p75": 0.0442143201943419,
+    "ratio_measured_over_predicted": 0.9309722638526382
+  }
+}

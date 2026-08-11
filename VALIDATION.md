@@ -10,7 +10,7 @@ This record distinguishes **software verification** from biological validation. 
 
 | Check | Result | Evidence |
 |---|---:|---|
-| Acceptance and regression tests | Passed | `13 passed` with `pytest -q` |
+| Acceptance and regression tests | Passed | `56 passed` with `pytest -q` (50-test manuscript claim plus infrastructure tests) |
 | Static analysis | Passed | `ruff check src tests` returned “All checks passed!” |
 | Format conformance | Passed | `ruff format --check src tests` reported 14 formatted files |
 | Python compilation | Passed | `python3 -m compileall -q src` completed successfully |

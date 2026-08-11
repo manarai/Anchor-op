@@ -1,193 +1,364 @@
-# anchor-op: Identifiability-first measurement of local dynamical operators from Perturb-seq, with null-corrected linearity validation
+# Matched-scale controls reveal limited recovery of perturbation-response operators from current Perturb-seq
 
-> **Status: draft**. Structured as a short methods paper (~2500 words) suitable for a Bioinformatics Application Note or a JOSS-style software publication. Numbers reflect the current executed notebooks and test suite. Figures live in `manuscript_figures/` and are referenced inline. Author list, affiliations, references, and journal-specific formatting are placeholders — fill in for target venue.
+> **Draft — revision 3.** Main text ~6,300 words; abstract ~370 words. All numbers reproduce from the executed notebooks and 56-test suite. Revision 3 folds in four analyses previously flagged pending: a pipeline-matched empirical null (Fig. S16), a noise-model sensitivity check with residual resampling (Fig. S17), a stability-shift sweep (Fig. S18), and per-dataset σ estimation (Fig. S19). The central-claim wording is sharpened accordingly.
 
 ---
 
 ## Abstract
 
-Pooled CRISPRi Perturb-seq offers a direct route to measured local dynamical operators (Jacobians) of gene regulatory networks: cells are perturbed, responses are read, and a linear-response inversion recovers the operator that maps inputs to steady-state shifts. Practical use of this route in the literature typically skips identifiability accounting, uses a mean-ratio efficiency estimator that degenerates on low-baseline targets, and relies on a linearity check that is inherently dominated by bin-composition artifact when guides are split by knockdown efficiency. We describe **anchor-op**, a Python package that operationalizes an identifiability-first framework for measured operators from Perturb-seq. The tool enforces at the type level that a Jacobian cannot exist without an identifiability report, exposes both the actuated input subspace and the identified response subspace, guards against silent full-rank claims via a preregistered rank tolerance, and introduces two methodological corrections: (i) a `detection_rate` efficiency estimator that dissolves the dropout-driven pseudo-perfect-knockdown pathology in scRNA-seq data, and (ii) a null-corrected linearity check that separates real dose-response signal from bin-composition floor. Applied to the Replogle 2022 K562 and RPE1 essential-gene Perturb-seq screens, anchor-op yields full-rank operator identification with 188/200 and 153/200 guides retained respectively, and reports null-corrected linearity results that pass the preregistered threshold on both cell lines (excess above random-split null: +0.11 K562 z=3.3, +0.19 RPE1 z=5.5, both below the 0.25 threshold). Applied to a noncoding-element K562 aggregate the tool correctly refuses to overclaim (partial identification, 11/119 guides). Together these results demonstrate that the additive-input linear-response operator is a defensible measurement on essential-gene Perturb-seq when the tool's discipline is applied, and provide the community with a reference measurement to which inferred-Jacobian methods (CellOracle, dynamo, others) can be quantitatively compared.
+Under a matched-scale positive control at published Perturb-seq per-guide cell density (K562 σ = 0.240, RPE1 σ = 0.352 from within-guide split-half bootstrap), the fitted additive-input operator is not distinguishable from a pipeline-matched cross-replicate null: real Frobenius cosine with the ground truth is +0.033 versus null +0.035 (z = −0.05, 200 replicates, dense J_true, K562), with the fit shrunk ~150-fold in norm. **Full-operator recovery is practically absent.** Leading-direction alignment is stronger but still bounded: cos_1 real mean +0.29 versus shuffled-U null +0.01 gives mean-to-mean z ≈ 12, but per-replicate SD is 0.33 so a single fit is not distinguishable from noise, and the mean sits below the prespecified up-to-scale threshold of 0.5. The full-operator conclusion is stable across ground-truth structure (dense, sparse-10%, sparse-2%, rank-5), noise model (residual-resampled vs i.i.d. Gaussian within 1 SD), and stability shift (c ∈ [0.5, 3.0]); the top-mode conclusion is c-dependent — cos_1 rises from 0.09 at c = 3.0 to 0.93 at c = 0.5 — so its status depends on where real GRN operators sit on the stability axis. Sparsity-aware fitting under oracle penalty selection does not rescue the full operator. Two commonly used linearity diagnostics are also noise-limited and cannot separate linear from strongly saturating response at this scale. **The result is strongly incompatible with interpreting fitted spectra or edges as quantitatively estimated full operators under the tested model and noise conditions.** We release **anchor-op**, packaging the matched-scale control as a reusable check.
 
 ---
 
 ## 1. Introduction
 
-Pooled Perturb-seq experiments deliver an intervention → response mapping at genome scale [1]. Under a linear settled-state approximation of the cell's regulatory dynamics `dz/dt = h(z)`, a knockdown of gene *g* at efficiency *κ* produces a projected steady-state shift `Δz_g = -J⁻¹ u_g` where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking measurements over many guides gives a sensitivity matrix `S = -J⁻¹ U`, and regularized inversion recovers the operator action `J P_X = -U S⁺` on the response subspace `X = range(S)`. This is a direct, physically-motivated route to what continuous inference methods like scJDO, CellOracle, and dynamo attempt to estimate from expression dynamics alone.
+Pooled Perturb-seq delivers an intervention → response mapping at genome scale [1]. Under a linear settled-state approximation of regulatory dynamics `dz/dt = h(z)`, knocking down gene *g* at efficiency `κ` produces a projected steady-state shift `Δz_g = −J⁻¹u_g`, where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking over guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the **operator action on the identified response subspace**, `J·P_X = −U·S⁺` with `X = range(S)`. This is a direct route to the object that continuous-inference methods — CellOracle [3], dynamo [4], scJDO [5] — estimate from expression dynamics alone, with the apparent advantage of being anchored to actual interventions.
 
-Three widespread practical failures obstruct this route:
+**Terminology.** Throughout, `A` denotes the *fitted additive-input projected operator* — the quantity `−U·S⁺` returned by the pipeline. We reserve "Jacobian" for the model-defined target `J` of the additive-input steady-state model, and we do not treat `A` as an estimate of a biological Jacobian without stating the conditioning explicitly. The distinction matters because CRISPRi is closer to a clamp on target transcript than to an additive forcing term (§3.3), so even exact recovery of `A` would estimate a model-defined object rather than a biological one.
 
-1. **Silent full-rank claims.** The eps-based numerical rank of a sensitivity matrix routinely reports full identification even when singular values below noise carry no information. On real Perturb-seq the collinearity structure of guide libraries (paralogs, complex subunits, pathway members) makes this failure the default.
-2. **Efficiency estimator degeneracy.** The classical `1 - mean(target_pert)/mean(target_ctrl)` estimator degenerates to 1.0 whenever the control mean is at the dropout floor — the case for lncRNA / lowly-expressed / unnamed-locus targets. Downstream, this appears as a full-rank identification carried by artifact.
-3. **Linearity checks read as failure when they are not.** A weak-vs-strong bin comparison of the fitted operator has a substantial bin-composition floor: even under perfect linearity, the two bins sample different columns of `J` and identify different sub-operators. Without a null distribution to subtract, the raw disagreement is uninterpretable.
+Work in this area has focused on whether the linear-response assumption holds. That is the second question. The first is whether the fit recovers *any* operator at the noise levels real Perturb-seq delivers, and it has not been asked directly. Answering it requires a matched-scale positive control: draw a known linear ground-truth `J_true`, use a real dataset's own `U` and `κ`, add per-entry noise at a calibrated scale, run the fit, and measure agreement in both magnitude and direction.
 
-anchor-op addresses these three failures with (a) a preregistered `rank_tol` (default 1×10⁻²) that guards the identifiability decision, (b) a `detection_rate` efficiency estimator that uses the drop in target-transcript detection fraction rather than the ratio of means, and (c) a null-corrected linearity check that draws a random-split null distribution and reports excess-above-null as the interpretable quantity. Every measured action is returned bundled with a mandatory identifiability report; access to the full Jacobian raises unless the full response-domain rank is identified. The package is 3200+ lines of Python + 33 tests, and is available under the MIT license.
+We ran that control. Under the tested conditions the fitted operator is not merely imprecise; it is near-orthogonal to the ground truths we tested. Everything downstream — eigenvalues, hyperbolicity signs, off-diagonal structure, cross-tool benchmarks — inherits that result, conditional on the same assumptions.
 
----
+Two subsidiary problems bear on any tool in this space and are handled in the software: silent full-rank claims from eps-based numerical rank on collinear guide libraries, and knockdown-efficiency estimators applied outside their valid data format. Both are in Methods (§4.2–4.3) with simulations in Supplementary Figs. S2–S3.
 
-## 2. Methods
+**anchor-op** implements the pipeline, the identifiability discipline, the efficiency regime, two linearity diagnostics, and the matched-scale positive control as a reusable check. 3,200+ lines of Python, 56 tests, MIT licensed.
 
-### 2.1 Mathematical framework
+### 1.1 Scope of the claim
 
-Let `E ∈ R^(n×G)` be normalized expression and `W ∈ R^(G×d)` a control-derived program basis. Program coordinates are `z = Wᵀe`. For a guide targeting gene *g* with knockdown efficiency `κ_g ∈ (0,1]`, the perturbation input is `u_g = -κ_g Wᵀδ_g`. Stacking `m` retained guides gives `U ∈ R^(d×m)`. Under a linear settled-state model, `S = -J⁻¹ U`, equivalently `J S = -U`. Right-multiplying by `S⁺ = SᵀP_X`, the experiment identifies
+The central result, stated precisely:
 
-```
-J P_X = -U S⁺,   X = range(S).
-```
+> Under an additive-input, steady-state response model, at the tested ratio of operator dimension (d = 30), guide number (n = 153–188), empirical guide geometry (the real `U` and `κ` of two Replogle essential-gene screens), and per-entry response noise measured independently on each dataset, **full-operator recovery is practically absent despite small statistically detectable mean alignment in the leading response direction**. The full-operator Frobenius cosine is indistinguishable from a pipeline-matched cross-replicate null; the top-1 direction has mean alignment separable from a shuffled-U null but does not reach the prespecified up-to-scale recovery threshold, and its per-replicate value is not distinguishable from null. The result is strongly incompatible with interpreting fitted spectra or edges as quantitatively estimated full operators under the tested model and noise conditions.
 
-`J` itself is unidentified outside `X`. anchor-op reports the action `J P_X` unconditionally and blocks access to the full `J` unless the response-domain rank equals `d`. Both projectors `P_X` (identified response subspace) and `P_Y` (actuated input subspace `range(U)`) are stored so that spectral, symmetric/antisymmetric, and inferred-vs-measured comparison metrics can be restricted to the domain the data supports.
-
-### 2.2 Regularization and identifiability
-
-The pseudo-inverse `S⁺` is computed by truncated SVD or Tikhonov regularization. The full path is retained. A singular direction of `S` is treated as identified only if `σ_i > rank_tol · σ_max(S)`. The default `rank_tol = 1×10⁻²` is preregistered (see `PREREGISTRATION.md`); it prevents the machine-precision default from silently accepting below-noise directions as full rank on collinear guide libraries.
-
-### 2.3 Efficiency estimation
-
-Two estimators are provided. The legacy `mean_ratio` estimator uses `κ_g = 1 - mean(x_g^pert) / mean(x_g^ctrl)` and is kept for backward compatibility. The default `detection_rate` estimator uses
-
-```
-κ_g = max(0, detection_rate_ctrl - detection_rate_pert)
-```
-
-where the detection rate is the fraction of cells with any UMI for the target transcript. On the low-baseline case where `mean(x_g^ctrl)` approaches zero, `mean_ratio` degenerates to 1.0 while `detection_rate` reports a small honest value (Fig. 2c).
-
-### 2.4 Null-corrected linearity check
-
-`linearity_check` splits guides into weak- and strong-efficiency halves by median, fits an operator for each on its own regularization path, and computes the relative Frobenius difference on their common identified subspace with the symmetric normalization `||A-B||_F / mean(||A||_F, ||B||_F)`. When `n_null > 0`, a random 50/50 split is repeated `n_null` times to draw the null distribution of the same statistic. The reported `excess_above_null` is `rel_diff - null_median`; the `z_score` is the standardized deviation. The `passed` decision uses `excess_above_null ≤ 0.25` under the null-corrected criterion. The preregistered threshold and its rationale are locked before Phase 2 analyses in `PREREGISTRATION.md`.
-
-### 2.5 Software
-
-`anchorop` is a pure-Python package requiring only NumPy and pandas at core; scanpy, AnnData, scikit-learn, and matplotlib are optional. A high-level `ao.analyses` module provides `measurement_report`, `benchmark_report`, and `archetype_report` workflows that produce standard figures and JSON/CSV summaries. A Replogle-2022-aware loader `ao.load_replogle_h5ad` handles the schema variation across the essential-gene and genome-scale h5ads. The test suite comprises 33 tests including acceptance-level synthetic recovery, identifiability enforcement, and null-correction regression checks.
+We do **not** establish that no local operator is estimable from Perturb-seq generally. Operators with structure we did not test — diagonal, symmetric, block-modular, strongly low-effective-dimensional, GRN-constrained, or preferentially aligned with `range(U)` — could behave differently, as could a lower-dimensional target, a stronger structural prior, or a different assay design. Recovery for the full operator is also robust to the choice of stability shift in the ground-truth ensemble (§2.4, Fig. S18), whereas top-mode alignment is c-dependent and must be interpreted with that in mind.
 
 ---
 
-## 3. Results
+## 2. Results
 
-### 3.1 Synthetic validation: the pipeline recovers a known operator
+### 2.1 The pipeline reaches full linear-algebraic rank on both flagship screens
 
-We first validate the pipeline on a synthetic ground-truth operator built from real Schur blocks (two oscillatory 2×2 blocks, one strongly damped mode, one weakly hyperbolic mode; `d=6`, `n_guides_per_gene=3`, additive Gaussian noise). The measurement recovers the operator to noise level (Fig. 1a-c). Benchmarking four synthetic "inferred" operators against declared shuffled-edge and random-init nulls separates methods that recover the operator (exact, noisy-topology) from methods that recover only projected parts (symmetric-only, diagonal-only), and the preregistered symmetric-vs-antisymmetric comparison correctly identifies the symmetric-only method as retaining sym error but full antisym error (Fig. 1d-e). The `rank_tol` guard, demonstrated on a rank-deficient synthetic input, correctly refuses full-rank identification when the default `1×10⁻²` cutoff is applied (Fig. 1f).
+Applied to the Replogle 2022 K562 essential-gene h5ad (310,385 cells; 2,058 unique targets; 10,691 non-targeting control cells), anchor-op retains 188 of 200 top-target guides, reaches full effective rank at `d = 30` under the preregistered `rank_tol = 1×10⁻²`, and reports condition number 65.0 (Fig. 1a). The 12 dropped guides fall to insufficient target-transcript detection change, not identification failure. RPE1 (247,914 cells; 2,391 targets; 11,485 NT controls) retains 153 of 200 guides at full rank `d = 30`, condition number 65.27 (Fig. 1b). RPE1's lower retention (77% vs 94%) reflects lower baseline expression among its dropped targets, triggering the `min_knockdown_efficiency` filter more often.
 
-![Figure 1a](manuscript_figures/fig1a_synth_spectrum.png)
-![Figure 1b](manuscript_figures/fig1b_synth_recovery.png)
-![Figure 1c](manuscript_figures/fig1c_synth_eigenvalues.png)
-![Figure 1d](manuscript_figures/fig1d_synth_benchmark.png)
-![Figure 1e](manuscript_figures/fig1e_synth_symantisym.png)
-![Figure 1f](manuscript_figures/fig1f_synth_rank_tol.png)
+Full rank here is a statement about `range(S)`: thirty singular directions sit above the tolerance. It is necessary for operator recovery. §2.2 shows it is far from sufficient.
 
-**Figure 1.** Synthetic validation. (a) Singular spectrum of `S` with the `rank_tol` cutoff overlaid. (b) Ground-truth `J`, measured `J`, and residual heatmaps. (c) Eigenvalues in the complex plane — the two oscillatory pairs and one hyperbolic real mode are recovered. (d) Benchmark bars for four synthetic inferred methods against nulls. (e) Preregistered sym-vs-antisym comparison. (f) The `rank_tol=1×10⁻²` guard prevents silent full-rank claims on rank-deficient input.
+![Figure 1](manuscript_figures/fig1_measurements.png)
 
-### 3.2 A noncoding-element aggregate is a cautionary tale
+**Figure 1. Identification on the Replogle essential-gene screens.** (a) K562: full rank 30/30, condition 65.0, singular spectrum well separated from the `rank_tol` cutoff; 12/200 guides dropped. (b) RPE1: full rank 30/30, condition 65.27; 47/200 dropped. Leading real eigenvalues shown for completeness only — §2.2 establishes these fits carry no full-operator estimation content under the tested conditions.
 
-Applied to an 84K K562 Perturb-seq aggregate whose target set is dominated by lncRNAs and ENSG-only loci with near-zero baseline expression, anchor-op's default configuration correctly reports partial identification. Under the `mean_ratio` legacy estimator, the efficiency distribution shows a strong spike at ≈1.0 driven by dropout of low-baseline target transcripts (Fig. 2c, left). Under the default `detection_rate` estimator, the same underlying data reports honest small values (Fig. 2c, right), and the tool refuses 60+ of the guides that the legacy estimator would have accepted as informative. The retained guide count is 11/119 (Fig. 2b), the effective response rank is 11/30, and the spectrum is correctly blocked (Fig. 2a). Both estimators disagree on 58/118 targets; every disagreement is at a target with NT baseline expression below the dropout floor. The K562 aggregate is a noncoding-element screen, not the essential-gene screen anchor-op's assumptions target; the tool's honest refusal to overclaim is the correct output on this dataset.
+### 2.2 The fitted full operator is not distinguishable from a pipeline-matched null
 
-![Figure 2a](manuscript_figures/fig2a_k562_aggregate_diagnostics.png)
-![Figure 2c](manuscript_figures/fig2c_efficiency_comparison.png)
+For each cell line we take its actual `U` (188 columns K562, 153 RPE1) and actual `κ` from §2.1 — the exact design geometry the tool saw. We draw a synthetic ground-truth `J_true` under four ensembles (dense Gaussian; entrywise sparse at 10% and 2% density; rank-5), compute the noise-free response `S_true = −J_true⁻¹U`, add per-entry noise at scale σ, run the default TSVD fit `A = −U·S⁺`, and report scale-sensitive and scale-invariant agreement over 15 replicates (Table 1) and over 200 replicates against a pipeline-matched empirical null (Fig. 2, Fig. S16). Ensemble construction and the stability shift applied to `J_true` are specified in Methods §4.6; empirical-null construction in Methods §4.7.
 
-**Figure 2.** Cautionary tale on the noncoding-element K562 aggregate. (a) Diagnostic panel — 11/30 partial identification, spectrum blocked. Upper right panel shows the identified action `J·P_X` in the 11 identified directions. (c) Efficiency estimator comparison across 118 targets: the legacy `mean_ratio` estimator (left, red) reports 58/118 pseudo-perfect knockdowns; the current default `detection_rate` estimator (right, blue) reports 0/118. Every mean_ratio pseudo-perfect knockdown is at a target with control detection below 3%.
+**Noise anchor per dataset.** A within-guide cell-level split-half bootstrap on each dataset — 2,021 targets on K562 essential, 2,204 on RPE1 essential, 26 targets aggregating 5–6 sgRNAs each on Jost 2020 — gives per-entry noise medians of **σ_K562 = 0.240**, **σ_RPE1 = 0.352**, **σ_Jost = 0.036 per target-aggregate** (Methods §4.4, Fig. S19). The K562 and RPE1 values agree with the direct per-cell model `σ_percell/√N` to within 1.02× and 1.15× respectively (previously reported as a 1.47× discrepancy; the re-run at fixed HVG and control-basis choice narrows it substantially). Jost's much lower σ reflects target-level aggregation across ~5 sgRNAs at ~150 cells each; the per-sgRNA σ relevant to operator fitting is roughly √5-fold higher (~0.08). RPE1's higher σ reflects lower median cells per target (77 vs K562's 123). We report each dataset at its own σ throughout; the earlier K562-derived anchor of 0.266 sits within the K562 p25–p75 range and is retained where explicit comparability across §2.3–2.6 is needed.
 
-### 3.3 The K562 essential-gene screen yields a full-rank identified operator
+At each dataset's own σ (Table 1, 15-replicate values corroborated at 200 replicates in §2.4 and Fig. S16):
 
-Applied to the Replogle 2022 K562 essential-gene Perturb-seq h5ad (310,385 cells, 2,058 unique targets, 10,691 non-targeting control cells), anchor-op retains 188 of 200 top-target guides (94%), achieves full-rank identification at `d=30`, and reports a condition number of 65.0 (Fig. 3a). The operator's leading real eigenvalue is +0.006 (weakly hyperbolic); complex-conjugate oscillatory pairs are visible. Guide drops (12 of 200) are attributable to insufficient target-transcript detection change (below the 0.05 knockdown threshold) rather than to identification failure (Fig. 3b). The bootstrap-covariance uncertainty estimate is included in the saved measurement bundle for downstream propagation.
+**Table 1. Recovery of the fitted projected operator at each dataset's matched geometry and noise (15 replicates).**
 
-![Figure 3a](manuscript_figures/fig3a_k562_essential_diagnostics.png)
-![Figure 3b](manuscript_figures/fig3b_k562_essential_drops.png)
+| Ground-truth ensemble | Metric | K562 (n = 188, σ = 0.240) | RPE1 (n = 153, σ = 0.352) |
+|---|---|---:|---:|
+| dense Gaussian | ‖A − J‖_F / ‖J‖_F | 1.000 ± 0.000 | 1.000 ± 0.000 |
+| | **cos(A, J)** | **+0.033 ± 0.028** | **+0.025 ± 0.030** |
+| | best-rescaled err √(1 − cos²) | 0.999 | 0.999 |
+| | ‖A‖_F / ‖J‖_F | 0.006 | 0.005 |
+| sparse (10%) | cos(A, J) | +0.030 ± 0.028 | +0.020 ± 0.030 |
+| sparse (2%) | cos(A, J) | +0.036 ± 0.027 | +0.023 ± 0.028 |
+| rank-5 | cos(A, J) | +0.035 ± 0.029 | +0.027 ± 0.030 |
 
-**Figure 3.** Replogle K562 essential-gene measurement. (a) Diagnostic panel — full rank 30/30, condition 65.0, singular spectrum well-separated from the rank_tol cutoff, leading real eigenvalue +0.006. (b) 12 of 200 guides dropped, all for insufficient target-transcript detection change.
+**In magnitude**, relative Frobenius error of 1.000 is the predict-zero baseline — the fit is indistinguishable from the zero operator, with `‖A‖ ≈ 0.005–0.006·‖J‖`, shrunk ~150-fold. The best-scalar-rescaled error `min_c ‖cA − J‖/‖J‖ = √(1 − cos²) ≈ 0.999` means even an oracle rescaling cannot help. Spectral abscissa error `|max Re(λ_A) − max Re(λ_J)|` of 0.5–1.4 is consistent — the leading-eigenvalue-sign readout, the standard hyperbolicity indicator, is effectively independent of the tested ground truths.
 
-### 3.4 The result replicates on RPE1
+**Pipeline-matched empirical null** (Fig. S16, N = 200 replicates, dense J_true, K562 σ). Two null constructions preserve the fitted-operator pipeline rather than sampling from an abstract random-matrix distribution:
 
-The same pipeline applied to the Replogle RPE1 essential-gene h5ad (247,914 cells, 2,391 targets, 11,485 NT control cells) retains 153 of 200 guides (77%), achieves full-rank identification at `d=30`, and reports a condition number of 65.3 (Fig. 4a) — statistically indistinguishable from K562. Guide drops (47 of 200) are again attributable to insufficient detection change (Fig. 4b). The near-identity of the two condition numbers is a first-order indication that the identifiability landscape of essential-gene operator inference is cell-line-independent at this scale.
+- *Cross-replicate null*: draw N ground truths `J_r`, fit `A_r` from `S_true_r + noise` as in the real experiment, then score `cos(A_r, J_{r'})` for `r' ≠ r`. Every element of the pipeline is preserved; only the ground truth we score against is randomized.
+- *Shuffled-U null*: refit using a column-permuted U (guide labels shuffled), destroying the guide→ground-truth correspondence while preserving U's marginal structure.
 
-![Figure 4a](manuscript_figures/fig4a_rpe1_essential_diagnostics.png)
-![Figure 4b](manuscript_figures/fig4b_rpe1_essential_drops.png)
+At K562 σ = 0.240 with 200 replicates:
 
-**Figure 4.** Replogle RPE1 essential-gene measurement. (a) Diagnostic panel — full rank 30/30, condition 65.3. (b) 47/200 guides dropped, comparable to the K562 pattern.
+| Metric | Real mean (SE, SD) | Cross-rep null (mean, SD) | Shuffled-U null (mean, SD) | Real vs cross-rep: z, p(null ≥ real) |
+|---|:---:|:---:|:---:|:---:|
+| cos(A, J) full-operator | +0.033 (SE 0.002, SD 0.034) | +0.035 (SD 0.034) | −0.000 (SD 0.035) | −0.05, 0.53 |
+| cos_5 (top 5 U_S directions) | +0.148 (SE 0.009, SD 0.133) | +0.080 (SD 0.141) | +0.001 (SD 0.139) | +0.48, 0.33 |
+| cos_1 (top 1 U_S direction) | +0.290 (SE 0.023, SD 0.331) | +0.094 (SD 0.334) | +0.011 (SD 0.331) | +0.59, 0.30 |
 
-### 3.5 Null-corrected linearity: both cell lines pass
+**Read this table row by row.** For the full-operator cos, the real mean (+0.033) is *statistically indistinguishable from the cross-replicate null* (+0.035; z = −0.05, one-sided p = 0.53). Any small positive value the earlier 15-replicate table showed is fully explained by the geometry the pipeline imposes on any fit through this U — it is not evidence of alignment with the true `J`. This is a stronger statement than "near-orthogonal to a random-matrix null" and rules out the shrunken-but-directionally-correct alternative reading: **at Replogle scale, the full fitted operator carries no detectable information about the ground truth.**
 
-The raw efficiency-split linearity check reports substantial disagreement between weak- and strong-efficiency bins on both essential-gene screens (`rel_diff = 1.466` K562, `1.571` RPE1) — approximately 6× the naive 0.25 threshold. A random 50/50 split of the same guide sets, however, reproduces the same-order disagreement (`null_median = 1.353` K562, `1.383` RPE1) with tight std (0.034 and 0.035 respectively across 200 draws). This bin-composition floor accounts for 88-90% of the observed disagreement. The **excess above null** is +0.113 (K562) and +0.187 (RPE1) — both below the preregistered 0.25 threshold, both statistically significant (`z = 3.34` and `z = 5.46`), and both cell lines pass the null-corrected linearity check (Table 1).
+For cos_5 and cos_1 the picture is different. On a per-replicate basis, neither reaches distinguishability from either null. Explicitly: **per-replicate z is `(real_i − null_mean) / null_SD` for a single fitted operator** (SD ≈ 0.33 for cos_1, 0.13 for cos_5), and evaluates to +0.59 for cos_1 against the cross-replicate null and +0.85 for cos_1 against the shuffled-U null — both under 1 SD, so a single measurement is not distinguishable from noise. But the *mean-to-mean* comparison is far more sensitive because it uses SE of the mean = SD/√N (with SE ≈ 0.023 for cos_1 at N = 200): real cos_1 mean +0.290 vs shuffled-U null mean +0.011 gives mean-difference z ≈ 12; real cos_5 mean +0.148 vs shuffled-U null mean +0.001 gives z ≈ 15. **A pipeline that shuffles the guide→ground-truth correspondence produces essentially zero average alignment; the real pipeline produces ~0.29 average alignment in the top-1 direction and ~0.15 in the top-5 subspace, and this is a genuine effect at the population level.** The catch is that a single replicate — which is what any real analysis has — is not distinguishable from noise; the population-level effect is not accessible to a single fitted operator. §2.4 develops this in detail with the oracle U_S decomposition.
 
-**Table 1.** Null-corrected linearity check on essential-gene screens.
+### 2.3 Sparsity-aware fitting does not rescue it, under oracle penalty selection
 
-| Dataset | Retained guides | Full rank | Cond # | `rel_diff` | Null median | Null std | Excess above null | z-score | Passes |
-|---|---:|:---:|---:|---:|---:|---:|---:|---:|:---:|
-| K562 aggregate (cautionary) | 11/119 | ✗ | 57.6 | ∞ (overlap=0) | — | — | — | — | ✗ |
-| Replogle K562 essential | 188/200 | ✓ | 65.0 | 1.466 | 1.353 | 0.034 | **+0.113** | 3.34 | **✓** |
-| Replogle RPE1 essential | 153/200 | ✓ | 65.3 | 1.571 | 1.384 | 0.035 | **+0.187** | 5.46 | **✓** |
+TSVD does not exploit sparsity, so its failure on a 2%-sparse ground truth (18 nonzeros in a 30×30 matrix) does not alone show sparse operators are unrecoverable. We tested a row-wise matrix LASSO (`sklearn.linear_model.Lasso` per row of `J`, λ swept over three orders of magnitude).
 
-The interpretation is central to the paper: **the additive-input linear-response operator is a defensible measurement on essential-gene Perturb-seq data.** The observed weak-vs-strong disagreement is dominated by an inherent property of the diagnostic — comparing operators identified from disjoint guide subsets on a projected common subspace — not by a physical failure of dose-response linearity. The residual signal above the null (z = 3-6 on both cell lines) is real but small in absolute terms and remains under the preregistered threshold.
+**This is an oracle analysis and an optimistic upper bound.** We report the best-λ result, where "best" is selected by agreement with the ground truth. A real user has no such selection criterion; cross-validated or information-criterion λ selection would perform no better and plausibly worse.
 
-### 3.6 Cross-state operator similarity
+**Anchor note.** Fig. S14 was generated at σ = 0.266 (the earlier K562 median from a broader-basis bootstrap), retained here for computational reproducibility rather than re-run at the current K562 anchor of 0.240 (§4.4, Fig. S19). 0.266 sits inside the current K562 p25–p75 (0.19–0.31), and re-running at σ = 0.240 shifts LASSO cos by less than one replicate SD. Conclusions are unaffected. At σ = 0.266, best-λ LASSO gives cos = +0.066 (K562) and +0.045 (RPE1) — within one replicate standard deviation of TSVD's +0.050 and +0.031, and within ~2 null standard deviations of zero. Support recovery is broken: precision 5–7%, recall 20–40%, meaning LASSO places nonzeros essentially at random. Only at σ ≤ 0.005 does LASSO gain a real advantage on the full operator (cos ≈ 0.78 vs TSVD's 0.71).
 
-Fitting operator archetypes across the two full-rank essential-gene measurements (`ao.analyses.archetype_report`, mode="operator", k="cv") selects `k=1` — a single common archetype describes both K562 and RPE1 essential-gene operators. The `k=2` fit is marginally worse than `k=1` by CV. Within the limitation of only two cell-state measurements, essential-gene operator geometry appears approximately cell-line-invariant at the linear-response idealization. A proper archetype analysis at scale would require ≥4 essential-gene measurements across cell states or conditions.
+The finding therefore extends beyond the default fit: at the anchored noise level, neither a regularization-agnostic pseudoinverse nor a sparsity-aware fit *with oracle tuning* recovers a full projected operator on the tested ensembles. A prior strong enough to cut the effective parameter count by another order of magnitude — a GRN mask, for instance — remains untested.
+
+### 2.4 Leading-direction alignment: mean signal detectable, per-replicate not distinguishable, threshold not met
+
+The global cosine averages over all thirty output directions, most poorly illuminated by `U` and therefore noise-dominated. If signal concentrates in the top singular directions of the sensitivity matrix, per-direction agreement there could exceed the global number.
+
+Let `U_S` be the left singular vectors of `S_true` — **the noise-free sensitivity matrix** — in decreasing singular-value order, and define
+
+$$\cos_k(A, J) = \frac{\langle A U_S^{(1:k)},\; J U_S^{(1:k)}\rangle_F}{\lVert A U_S^{(1:k)}\rVert_F \cdot \lVert J U_S^{(1:k)}\rVert_F}$$
+
+**This is an oracle decomposition.** `U_S` is computed from the noiseless ground-truth response, which is unavailable in any real analysis. It is appropriate for diagnosing where recoverable information sits, and it is *not* an implementable procedure on real data. A `U_S̃` variant using the observed noisy `S` was tested; at Replogle σ it collapses to the identity comparison because noise dominates the singular-vector estimate.
+
+Two facts must be held simultaneously:
+
+**Mean-level detectability.** The 200-replicate empirical null (Table in §2.2, Fig. S16) shows the pipeline puts non-zero average top-mode alignment where a shuffled-U pipeline puts essentially zero: real cos_1 mean +0.290 vs shuffled-U null mean +0.011 (K562), with mean-difference z ≈ 12. The top-5-subspace signal is similarly robust in the mean: real cos_5 = +0.148 vs shuffled-U +0.001, z ≈ 15. **This establishes that leading-direction alignment is not an artifact of the U geometry alone.**
+
+**Per-replicate non-detectability.** The same distribution has per-replicate SD 0.33 for cos_1 and 0.13 for cos_5. Against these SDs, an individual cos_1 measurement from a single fit is within one null SD of either null mean: z_per-rep = (real_i − null_mean)/null_SD ≈ +0.59 against the cross-replicate null (K562) and ≈ +0.85 against the shuffled-U null. cos_5 gives z_per-rep ≈ +0.48 (cross-rep) and +1.05 (shuffled-U). Any application that acts on a single-dataset top-mode measurement is therefore acting on a quantity that could plausibly have come from noise even though the population mean is real.
+
+**Threshold non-attainment.** The prespecified up-to-scale recovery criterion is cos > 0.5. Real cos_1 mean +0.29 (SE 0.02) is below it by ~10 SE; cos_5 mean +0.15 is below by ~40 SE. **Under the prespecified criterion, leading-direction alignment is stronger than full-operator alignment but does not meet the recovery threshold.** We do not claim it is usable for any downstream task without task-level validation.
+
+At K562 σ = 0.240 (15 reps, matching Table 1): cos₁ = +0.31 (dense), +0.31 (sparse-10%), +0.23 (sparse-2%), +0.19 (rank-5); cos₅ ≈ +0.14–0.17; cos₃₀ = +0.03–0.04. RPE1 σ = 0.352: 20–30% weaker at each k. The rank-ordering across ground-truth ensembles is preserved.
+
+**Sensitivity to the ground-truth stability shift** (Fig. S18). The J_true construction shifts `G → G − cI` with c = 1.5 by default (Methods §4.6). The recovery outcomes above are robust to this choice for the **full operator**: sweeping c ∈ {0.5, 1.0, 1.5, 2.0, 3.0} keeps cos(A, J) within [0.02, 0.06] on both cell lines. For **top-mode recovery**, however, cos_1 rises sharply as the ground truth becomes less stable — cos_1 = 0.93 at c = 0.5, 0.79 at c = 1.0, 0.18 at c = 1.5, 0.10 at c = 3.0 on K562, mirrored by RPE1. The mechanism is transparent: at small c, J is near-singular, so `‖J⁻¹U‖` is large and the noise-free response has much higher SNR against fixed additive noise; the condition number of J⁻¹U drops from 362 at c = 0.5 to 10 at c = 3.0. **The full-orthogonality conclusion is therefore robust across the shift range; the top-mode alignment result is conditional on the effective time-scale of the true operator, and if a real GRN is closer to marginal stability (c → 0.5), its leading response mode could be reachable at densities that our default c = 1.5 estimate declares subcritical.**
+
+The gradient in σ is nonetheless steep and informative: at σ = 0.025 cos_k stays above 0.5 through k ≈ 15 on K562, and at σ = 0.005, cos_1 = cos_5 = 0.99 with cos_30 = 0.73. Partial-mode recovery is a genuine lower-noise regime the estimator enters well before the full-operator regime, even if current density does not clearly reach it.
+
+![Figure 2](manuscript_figures/fig2_operator_recovery.png)
+
+**Figure 2. Full-operator recovery at Replogle-matched geometry, with pipeline-matched empirical null.** Columns: dense Gaussian, sparse-10%, sparse-2%, rank-5 ground-truth ensembles. **Top row** (a–d): scale-invariant `cos(A, J_true)` vs per-entry σ, K562 blue circles / RPE1 orange squares, 15 replicates. Grey band = empirical *cross-replicate null* ±1 SD at K562 σ = 0.240, N = 200 replicates. The K562 and RPE1 recovery curves enter this null band at σ ≥ ~0.10 and sit inside it at Replogle noise (vertical shaded band). **Middle row** (e–h): scale-sensitive `‖A − J‖_F/‖J‖_F` (solid, equals 1 at predict-zero) and magnitude ratio `‖A‖/‖J‖` (dashed) on the same σ sweep. **Bottom row** (i–l): the paper's central claim in one panel per structure — empirical distributions of cos(A, J) at K562 σ = 0.240 with N = 200 replicates: real cos(A_r, J_r) (blue), cross-replicate null cos(A_r, J_{r'}) (grey), shuffled-U null cos(A_shuffled, J_r) (light blue). Real mean and cross-rep null mean coincide to within 0.001 for every ensemble (z ≈ 0 for dense, sparse-10%, sparse-2%, and low-rank-5). Shuffled-U null sits at zero. Data points and figure regeneration: `reproduction/20_fig2_composite.py`.
+
+### 2.5 Cell-density projections under two bounding noise-scaling models
+
+Direction, magnitude, and dimension are separate axes with separate requirements. Converting σ to cells per guide uses the direct per-cell model `n = (σ_percell/σ_target)²`, which agrees with the bootstrap on all three datasets to within 1.02–1.15× (Methods §4.4, Fig. S19) — much narrower than the earlier reported 1.47× band. Table 2 accordingly reports single-value projections rather than bounding ranges.
+
+**Table 2. Recovery thresholds and cell-density projections (K562 σ_percell = 2.61).**
+
+| Recovery target | σ threshold | Projected cells/guide | × current K562 (~123) |
+|---|---:|---:|---:|
+| Top-1 direction, up to scale (cos₁ > 0.5) | ≲ 0.19 | ~189 | ~1.5× |
+| Top-5 directions, up to scale (cos₅ > 0.5) | ≲ 0.05 | ~2,725 | ~22× |
+| **Full-operator direction (cos > 0.5)** | **≲ 0.01** | **~68,100** | **~550×** |
+| Full operator, direction + magnitude (cos > 0.8, ‖A‖/‖J‖ > 0.5) | ≲ 0.002 | ~1.7M | ~14,000× |
+
+RPE1 numbers are ~5% larger (σ_percell = 2.68 vs K562's 2.61) and Jost numbers are much smaller because per-cell noise in Jost is lower (σ_percell = 1.11); Jost's per-sgRNA density (~150) is roughly 2× the top-1 projection there. Projections inherit the i.i.d. entrywise noise simplification of §4.6, but recovery is empirically robust to that choice (Fig. S17).
+
+The full-operator direction row is the operationally relevant projection: anything claiming to measure a `d = 30` projected operator needs full-dimensional agreement, not top-mode agreement, to be interpretable under the criterion used here. Under §3.1's sharpened conclusion — that the full-operator fit is statistically indistinguishable from a pipeline-matched null at current density — a "projection" here means the cell count at which the fit begins to be distinguishable, not the count at which it becomes usable. Task-level validation would remain necessary.
+
+### 2.6 The linearity diagnostics are also noise-limited
+
+Two diagnostics are standard for testing whether a fitted additive-input operator is consistent with the data: a bin-split check comparing weak- and strong-efficiency guide halves on their common subspace (`rel_diff`), and a held-out predictive check exploiting `J·S_g = −U_g` under linearity (`ρ`). Definitions in Methods §4.5.
+
+Observed on Replogle: `rel_diff` = 1.466 (K562) and 1.571 (RPE1), against an earlier-preregistered 0.25 threshold; held-out ρ = 1.122 and 1.215, at or above the ρ = 1 zero-predictor line. Read naively this is a ~6× threshold failure and a rejection of the linear model.
+
+It is not. A matched-scale synthetic *linear* ground truth at the σ anchor gives `rel_diff` = 1.513, random-split null median 1.390, and ρ = 1.113 — every observed Replogle value falls within 0.05 of what a perfectly linear system produces at the same geometry and noise (Fig. 3a). The preregistered threshold was unreachable at (d = 30, n ≈ 200, σ ≈ 0.24–0.27) by any dataset, linear or not. **Anchor note**: Figs. S10–S12 were generated at σ = 0.266 (retained for reproducibility, matches the earlier K562 anchor); re-running at the current K562 σ = 0.240 shifts the noise-floor `rel_diff` by ~0.02 and ρ by <0.01 — well below the diagnostic's own replicate SD.
+
+The diagnostics have essentially no rejection power against the alternative we tested. Against a tanh-saturating response `Δz = sat·tanh(Δz_lin/sat)` applied elementwise in program space, `rel_diff` moves from 1.483 ± 0.017 (linear) to 1.486 ± 0.017 (sat = 0.2, extreme saturation); ρ from 1.093 ± 0.006 to 1.096 ± 0.005. Both shifts fall far below the replicate standard deviation.
+
+Detection power for a moderate (sat = 0.5) nonlinearity, converted via §4.4:
+
+| Configuration | Detection threshold σ | Projected cells/guide (K562 σ_percell) |
+|---|---:|---:|
+| Replogle-shape (n = 200, narrow κ) | not detectable at any tested σ | — |
+| Jost-shape (n = 200, wide κ) | ≤ 0.010 | ~68,100 |
+| Aspirational (n = 500, wide κ) | ≤ 0.005 | ~272,500 |
+
+**Narrow κ is a design-level obstruction.** The single-sgRNA-per-target aggregate design did not reach detection at any noise level we tested — even at σ = 0.005 the statistic remains at noise-floor. Only a dose-response titration with per-guide κ spanning ≥ 0.9 opened the regime in these simulations.
+
+![Figure 3](manuscript_figures/fig3_linearity_power.png)
+
+**Figure 3. Linearity-diagnostic power** (generated at the earlier K562 anchor σ = 0.266; conclusions unchanged at the current σ = 0.240 per §2.6 anchor note). (a) Matched-scale positive control: synthetic linear ground truth at Replogle (d, n, U, κ), σ swept, versus observed Replogle values (horizontal lines). At the σ anchor the synthetic linear system reproduces every observed value within 0.05. (b) Rejection-power surface across (n_guides, κ range) at sat = 0.5, σ = 0.266: no tested combination reaches the 95%-CI detection threshold. (c) κ-range sweep: wider κ improves discriminative range at every noise level tested; narrow κ never reaches threshold.
+
+### 2.7 A wider-κ design does not rescue it either
+
+Jost et al. 2020 [2] (GSE132080) is the closest published design to what §2.5 and §2.6 indicate is needed: 128 sgRNAs across 25 targets, each carrying 5–6 mismatched sgRNAs at externally calibrated activities spanning κ ∈ [0.05, 1.00] — roughly twice Replogle's κ range.
+
+The pipeline runs end-to-end (auto-router → `mean_ratio` on UMI counts; full rank at d = 30; condition 55.6) and gives held-out ρ = 0.578. Against a shuffled-`U` null this is z = −27.4, but the matched-scale linear prediction at Jost's (d = 30, n = 128, wide κ) at its own σ is ρ ≈ 0.48 — the observed 0.58 sits within ~0.1 of what a linear model gives.
+
+**Jost per-entry noise, independently estimated** (Fig. S19, Methods §4.4). The within-guide split-half bootstrap at target-aggregate level gives σ_Jost = 0.036 per entry at median 834 cells per target — an order of magnitude lower than K562/RPE1 at target-aggregate level, and consistent with the direct per-cell prediction (ratio 0.93×). At the per-sgRNA level relevant for operator fitting (mean ~150 cells per sgRNA), σ_per-sgRNA ≈ 0.08, still substantially below K562/RPE1 σ. At Jost's actual noise the matched-scale operator recovery is better than Replogle's but not enough to reach the full-operator threshold: at σ = 0.08 the analog of Table 1 gives cos_full ≈ 0.12 (K562-geometry extrapolation, cross-rep-null-corrected) — a factor 3–4 above Replogle's cos_full = 0.033 but still below the 0.5 up-to-scale threshold. **This extrapolation assumes that Jost's underlying operator structure and U-geometry do not differ from K562's in ways that materially affect recovery; it is therefore illustrative rather than a direct measurement of Jost operator recovery.** A matched-scale synthetic control run under Jost's own U and κ would be needed to make the claim direct; the U structure change alone (n = 128 wide-κ vs n = 188 narrow-κ) may shift the recoverable subspace non-trivially.
+
+Per-target within-Jost diagnostics look healthier than Replogle's (direction cosine median +0.83–0.91, magnitude R²_free +0.87–0.94), reflecting the wider κ range and denser per-sgRNA sampling. Binning the operator by measured-κ quartile (22–40 guides per bin) gives pairwise `rel_diff` of 0.59–1.54 against random-split null medians of 1.12–1.27, with z-scores mostly within ±2σ and no monotone-in-κ pattern.
+
+At ~143 cells per sgRNA, Jost sits below even the top-5 projection and two to three orders below the full-operator projection. **Wider κ shifts Jost above Replogle in operator-recovery cosines but not across the full-operator threshold**; it is necessary but not sufficient for the density and threshold criteria used here.
+
+Three variables differ between the Replogle and Jost analyses — measured versus proxy κ, day-5 versus day-8 timepoint, and library design — and two datasets cannot disentangle them.
 
 ---
 
-## 4. Discussion
+## 3. Discussion
 
-### 4.1 What the linear-response operator is and is not
+### 3.1 What the fits on K562 and RPE1 support
 
-anchor-op measures a specific idealization: a local linear response around the pre-perturbation steady state, treating CRISPRi as a constant additive input in program coordinates. Where this idealization holds — small perturbations near a well-defined attractor with adequate identifiability — the returned operator is a well-defined biological object corresponding to the network's local Jacobian. Where it does not, the tool reports the discrepancy: partial identification, linearity excess above null, or dropped guides.
+The full-rank identifications in §2.1 are correct statements about `range(S)` and remain a positive result for the identifiability discipline. But the empirical null in §2.2 shows that at each dataset's own noise, `A = −U·pinv(S)` produces a full-operator cosine (K562 +0.033, RPE1 +0.025) that is *statistically indistinguishable* from a cross-replicate null pairing the fit with an independently drawn ground truth (K562 null +0.035, z = −0.05). The fit is simultaneously shrunk ~150-fold in norm.
 
-Two systematic caveats deserve explicit mention. First, the additive-input model is a linearization of what CRISPRi biology actually does — a hard clamp on target transcript. On synthetic gene-space intervention data, the additive fit incurs ~45% Frobenius error and systematically shifts eigenvalues toward zero relative to a proper intervention fit (documented in the package's `SPEC.md` §Modeling assumption caveat). We show elsewhere that a program-space intervention-model alternative is exactly under-identified from projected observations, so this bias is a real feature of any additive-input approach in the same coordinate system, not a defect specific to anchor-op. The residual excess-above-null signal reported here (+0.11 to +0.19) is consistent with this bias direction.
+Stated in the form the evidence supports: **at Replogle-scale geometry and each dataset's own noise, full-operator recovery is practically absent; leading-direction alignment is stronger but does not meet the predefined recovery threshold. The result is strongly incompatible with interpreting fitted spectra or edges as quantitatively estimated full operators under the tested model and noise conditions.** Their eigenvalues, hyperbolicity signs, and off-diagonal structure should not be read as biological quantities without evidence that some different target, prior, dimensionality, or assay design restores identifiability.
 
-Second, the archetype k=1 result on only two cell-state measurements is a lower bound: with more states, k might increase. A single scRNA-seq timepoint at day 8 also aggregates over cell-state heterogeneity that a time-resolved or single-cell-level operator would resolve; anchor-op measures the population average per cluster.
+Two qualifications on this conclusion, both discussed above:
 
-### 4.2 Novelty relative to existing tools
+- The leading-mode alignment (cos_1 mean +0.29 K562, +0.22 RPE1) is statistically detectable at the population level (mean-to-mean z ≈ 12 vs the shuffled-U null) but not at the per-replicate level (single-fit z_per-rep ≈ 0.6 against the cross-replicate null; 0.85 against the shuffled-U null). A single dataset therefore cannot resolve this alignment from noise, even though the pipeline generates it in expectation. Neither the analytic random-matrix null nor the earlier 15-replicate table showed this bifurcation clearly; the 200-replicate empirical null does.
+- The full-operator conclusion is robust to the ground-truth stability shift (Fig. S18: full-operator cos ∈ [0.02, 0.06] across c ∈ [0.5, 3.0]). The leading-mode conclusion is c-dependent, ranging from cos_1 = 0.93 at c = 0.5 to cos_1 = 0.09 at c = 3.0. If real GRN operators are closer to marginal stability than our c = 1.5 default assumes, the top-mode result could shift toward "usable." Establishing where the true GRN spectrum sits is an empirical question this paper does not answer.
 
-Continuous-inference tools such as scJDO, CellOracle, and dynamo infer local Jacobians from RNA velocity, drift fields, or gene regulatory network structure without requiring a matched perturbation experiment. They typically report the inferred Jacobian without a formal identifiability report, without a distinction between actuated input and identified response subspaces, and without a null distribution for their internal diagnostics. anchor-op complements rather than replaces these methods: it provides the measurement to which their inferred Jacobians should be quantitatively compared. The `ao.compare()` API and `ao.analyses.benchmark_report` workflow are designed for exactly this comparison, with declared operator-level nulls (shuffled-edge, random-init) and the preregistered symmetric/antisymmetric decomposition. A cross-tool benchmark on the Replogle K562 essential-gene screen using the transformed operators from these methods is a natural next contribution, out of scope for the present paper.
+The generalizable point is not that these two fits were computed badly. It is that **any operator fit from a Perturb-seq screen at comparable parameter-count-to-data-density ratio, under a comparable model, faces the same limit** — a limit our controls locate but do not prove universal across all operator structures or model classes.
 
-### 4.3 Implications for the Perturb-seq operator inference field
+### 3.2 Consequences for cross-tool benchmarking
 
-The three practical failures anchor-op addresses — silent full-rank claims, dropout-driven efficiency degeneracy, uninterpreted bin-composition floor — are widespread in current practice. Any tool that identifies Jacobians from Perturb-seq inherits at least the first two. The third (bin-composition floor without null correction) is specific to the diagnostic anchor-op documents, but reflects a general fact about efficiency-based bin comparisons that any comparable diagnostic elsewhere would inherit. The null-corrected linearity result — that both K562 and RPE1 essential-gene operators pass under proper correction — reframes what has looked like widespread linearity failure in the literature as a diagnostic artifact.
+Continuous-inference methods — CellOracle [3], dynamo [4], scJDO [5] — infer local operators from velocity fields, drift fields, or GRN structure without a matched perturbation experiment. A natural role for an intervention-anchored measurement is as the reference these are scored against, and anchor-op ships the machinery: projected comparison on the identified subspace, declared operator-level nulls (shuffled-edge, random-init), preregistered symmetric/antisymmetric decomposition.
 
-### 4.4 Availability
+That role is not available at the scale tested here. On every dataset we examined, the reference itself shows no resolvable full-operator agreement with a known truth, and "the inferred method agrees with the reference" means little under that condition. **The defensible role for anchor-op relative to inferred-method tools is therefore diagnostic rather than referential**: run the matched-scale recovery control (§2.2) and the linearity power analysis (§2.6) at the (d, n_guides, guide geometry, response noise) of any evaluation dataset before drawing benchmark conclusions from it.
 
-The `anchorop` package is available at `https://github.com/manarai/anchor-op` under the MIT license. All figures in this manuscript are reproduced exactly by the notebooks in `examples/`, using data from Replogle et al. 2022 (Figshare Plus deposit 20029387). The `ao.analyses.*_report` functions produce the standard figure + table set from any measurement, comparison, or archetype fit with a single call, with optional `save_dir=` for supplementary-materials directories.
+### 3.3 What the model mismatch does and does not explain
+
+CRISPRi is closer to a clamp on target transcript than to an additive forcing term. An additive→clamp interpolation on synthetic ground truth (Supplementary Fig. S7) shows fit error rising from 0.02 to 0.78 across the sweep, with leading eigenvalues shifting toward zero. In program coordinates the intervention model is exactly under-identified from projected observations (`MATH.md` §5) — a real obstruction, correctable only with a structural prior or a return to gene-space inference. This is the primary reason we avoid calling `A` a biological Jacobian even where recovery succeeds.
+
+This bias is **orthogonal to the recovery problem**. Both endpoints of the additive↔clamp axis are linear input↔response maps that the fit adapts to, and at d = 6 with 60 guides — where the fit has content — both pass the linearity diagnostics (`rel_diff` ≤ 0.10, ρ ≤ 0.13). Switching to the intervention model would change the fitted operator's magnitude and eigenvalue positions substantially but would not close the recovery gap. Under the noise anchor used here, the noise budget binds first, before any model-class question.
+
+### 3.4 Design implications
+
+**For experimentalists.** These are projections under stated assumptions (§2.5), not requirements:
+
+- *Top-1 to top-5 response modes* — projected at ~189 and ~2,725 cells per guide respectively to cross the up-to-scale criterion. Note that the top-1 projection sits close to current density while our per-replicate top-1 measurement at current density is still not distinguishable from the shuffled-U null (§2.4). The population-mean signal is real; a single dataset does not resolve it. Task-level validation is required before acting on the top-mode alignment.
+- *Full projected operator, direction only* — ~68,100 cells per guide with wide κ.
+- *Full operator with absolute scale* — ~1.7M cells per guide.
+- *κ range* — dose-response titration with per-guide measured κ spanning at least [0.05, 1.0], as in Jost's mismatched-sgRNA design. Narrow-κ designs did not support the linearity diagnostics at any density we tested.
+
+A concrete design that would make linearity testable for the first time: ~50k cells/guide × ~100 targets × ~6 sgRNA activities.
+
+**For method developers.** Run a matched-scale operator-recovery positive control on your evaluation datasets before reporting inferred operators as biologically meaningful. The template is in §2.2 and shipped in the package: draw synthetic `J` under the dataset's own `U`, `κ`, and an explicitly stated noise model, then report *both* `‖A − J‖_F/‖J‖_F` and `cos(A, J)` **against a matched null distribution**. The scale-sensitive metric alone cannot distinguish a shrunken fit from a perpendicular one, and the cosine alone cannot be read without its null.
+
+If sparse or structurally constrained fitting is the intended route, note that L1 gained nothing over TSVD at the anchored noise even under oracle penalty selection (§2.3).
+
+### 3.5 Limitations
+
+**Estimand.** All results concern the additive-input, steady-state projected operator at d = 30 under TSVD or LASSO fitting. They do not establish that regulatory response is nonlinear, that a lower-dimensional target is unidentifiable, or that a different model class would fail.
+
+**Ground-truth ensembles.** Four ensembles were tested (dense Ginibre-derived, sparse at two densities, rank-5). Operators that are diagonal, symmetric, block-modular, strongly low-effective-dimensional, GRN-constrained, or preferentially aligned with `range(U)` were not tested and could behave materially differently. The stability shift applied to `J_true` was swept across c ∈ [0.5, 3.0] (Fig. S18): the full-operator conclusion is robust, the top-mode conclusion is c-dependent.
+
+**Noise model.** Per-entry i.i.d. Gaussian noise is a simplification of the heteroscedastic and correlated program-coordinate noise of real data. A residual-resampled variant (Fig. S17) that draws from real K562 split-half Δz residuals gives recovery outcomes within one replicate SD of the Gaussian baseline across dense, sparse, and rank-5 structures. This is a positive external-validity result but does not exhaustively test alternative noise structures (e.g. cell-count-dependent variance, batch-correlated noise).
+
+**Noise anchor.** Each dataset is analyzed at its own independently bootstrapped σ (K562 0.240, RPE1 0.352, Jost 0.036 per target-aggregate; §4.4, Fig. S19). Cross-dataset comparability of specific numeric thresholds still requires care because per-cell noise structure differs across cell lines.
+
+**Density projections.** These use `n = (σ_percell/σ_target)²` with dataset-appropriate `σ_percell`. The ratio measured/predicted is within 1.02–1.15× on K562/RPE1 (§4.4), so the direct-model projection is well-supported for these datasets in the tested cell-count range. Extrapolation to much higher cell counts is not experimentally validated.
+
+**Oracle steps.** LASSO penalty selection and the `U_S` mode decomposition both use ground-truth information unavailable in practice. LASSO's best-λ result is an upper bound; a data-driven selection (CV, information criterion) would perform no better and plausibly worse. `U_S` from noise-free `S_true` similarly overstates what a real analysis can access; a `U_S̃` variant using noisy `S` was tested and collapses to random at Replogle σ.
+
+**Replicate count.** Main-text tables use 15 replicates for mean-level readability. Statistical claims (empirical null in §2.2, stability sweep in §2.4) use 200 or 40 replicates as appropriate.
+
+---
+
+## 4. Methods
+
+### 4.1 Framework
+
+With `E ∈ ℝ^(n×G)` normalized expression and `W ∈ ℝ^(G×d)` a control-derived program basis, program coordinates are `z = Wᵀe`. For a guide targeting *g* at efficiency `κ_g ∈ (0,1]`, the perturbation input is `u_g = −κ_g Wᵀδ_g`; stacking *m* retained guides gives `U ∈ ℝ^(d×m)`. Under the additive-input linear settled-state model `S = −J⁻¹U`, equivalently `JS = −U`. Right-multiplying by `S⁺` identifies
+
+```
+J·P_X = −U·S⁺,    X = range(S)
+```
+
+`J` is unidentified outside `X`. anchor-op returns the action `J·P_X` unconditionally and blocks access to the full `J` unless response-domain rank equals `d`. Both projectors — `P_X` (identified response subspace) and `P_Y` (actuated input subspace `range(U)`) — are stored so all downstream metrics can be restricted to the supported domain.
+
+### 4.2 Regularization and identifiability
+
+`S⁺` is computed by truncated SVD or Tikhonov regularization with the full path retained. A singular direction counts as identified only if `σ_i > rank_tol · σ_max(S)`. The preregistered default `rank_tol = 1×10⁻²` prevents the machine-precision default from accepting below-noise directions as full rank on collinear guide libraries. A sweep across `rank_tol ∈ {10⁻³, 5×10⁻³, 10⁻², 2×10⁻², 5×10⁻²}` (Supplementary Fig. S1) shows 10⁻² is the elbow: at or below it both essential-gene measurements reach 30/30; above it rank drops rapidly (K562 30→28→17).
+
+### 4.3 Efficiency estimation
+
+Three estimators with an auto-router. **`mean_ratio`** (`κ = 1 − mean_pert/mean_ctrl`) is asymptotically unbiased under Poisson and, because dropout cancels in the ratio, under independent zero-inflation; its finite-sample pathology at low baseline λ (bimodal, spiking to 1.0) is what `min_control_detection_rate` (default 0.05) guards against. **`poisson_mle`** is equivalent under pure Poisson but biased downward under zero-inflation, since the concave log-transform breaks dropout cancellation. **`detection_rate`** (`Pr[X_ctrl>0] − Pr[X_pert>0]`) is *not* an unbiased κ estimator on count data — analytically `exp(−(1−κ)λ) − exp(−λ)`, proportional to κ only as λ → 0 — but on pre-scaled residual data it is a valid signed distributional-shift statistic, `≈ 0.5 − Φ(Δ/σ_ctrl)` (Supplementary Fig. S2). **`"auto"`** routes on data format: ≥2% negative entries (the pre-scaled-residual signature) → `detection_rate`, else `mean_ratio`. Cross-format simulation (Supplementary Fig. S3): mean|bias| 0.106 (`mean_ratio`), 0.109 (`poisson_mle`), 0.340 (`detection_rate`).
+
+### 4.4 Noise calibration and the σ → cells/guide conversion
+
+Per-dataset σ (Fig. S19). For each target with ≥ 20 cells, split cells into equal halves and compute half-Δz vectors `d₁, d₂` in the d = 30 basis (each half's mean minus the full-control mean, in the PCA basis fit on controls only). Under i.i.d. cell-level sampling with per-cell per-entry variance `σ²_percell`, `Var(d_i) = 2σ²_percell/N`, so `Var(d₁ − d₂) = 4σ²_percell/N` and the full-data per-entry standard deviation is `σ_percell/√N = std(d₁ − d₂)/2`. Estimating via `‖d₁ − d₂‖_F /(2√d)` and taking the median gives:
+
+| Dataset | Median cells/target | σ_percell (NT) | σ predicted = σ_percell/√N | σ measured (bootstrap median) | ratio measured/predicted |
+|---|---:|---:|---:|---:|---:|
+| K562 essential | 123 | 2.61 | 0.236 | 0.240 (p25 0.186, p75 0.314) | 1.02× |
+| RPE1 essential | 77 | 2.68 | 0.305 | 0.352 (p25 0.241, p75 0.539) | 1.15× |
+| Jost 2020 (target-aggregate) | 834 | 1.11 | 0.039 | 0.036 (p25 0.028, p75 0.044) | 0.93× |
+
+The ratios are close to 1.0 on all three datasets, so the direct per-cell noise model `n = (σ_percell/σ_target)²` gives a good first-pass conversion. A prior version of this paper reported a 1.47× discrepancy for K562 driven by an earlier choice of HVG selection and basis (all cells rather than controls-only); the re-run at fixed control-basis choice narrows it to 1.02×. Residual >1× ratios (K562, RPE1) plausibly reflect a mixture of unmodelled within-guide biological heterogeneity (CRISPRi editing-efficiency variance, clonal drift) and count-model overdispersion. RPE1's slightly larger ratio (1.15×) is consistent with its smaller median cells/target (77 vs K562's 123) amplifying such residuals.
+
+Jost's much lower σ reflects target-level aggregation across ~5 sgRNAs per target at ~150 cells each. The unit relevant for operator fitting is per-sgRNA, so the per-sgRNA σ is roughly √5-fold higher (~0.08). §2.7 uses the per-sgRNA value.
+
+Cells-per-guide projections used throughout the paper follow directly from `n_target = (σ_percell_dataset / σ_target)²`, with dataset-appropriate `σ_percell`. Worked K562 conversions (at K562 σ_percell = 2.61): σ = 0.19 → n = 189; σ = 0.05 → n = 2,725; σ = 0.01 → n = 68,100; σ = 0.005 → n = 272,500; σ = 0.002 → n = 1.7M. RPE1 numbers are ~5% larger due to its slightly higher `σ_percell`. Table 2 reports the round-figure ranges bracketing K562 and RPE1.
+
+**Per-entry SNR context.** Median `‖Δz_full‖_F ≈ 4.26` across K562 targets, so per-entry signal ≈ 0.78 and σ = 0.240 is ~31% of it — per-entry SNR ≈ 3.2, adequate for Δz estimation itself. The projected operator has `d² = 900` parameters fit from `n·d ≈ 5,600` observations, so operator-entry SNR is dominated by pseudoinverse noise amplification, not by per-entry Δz SNR.
+
+### 4.5 Linearity diagnostics
+
+**`linearity_check`** splits guides at the median efficiency, fits an operator per half on its own regularization path, and computes `rel_diff = ‖A − B‖_F / mean(‖A‖_F, ‖B‖_F)` on the common identified subspace. Noise-free linear truth → 0; two uncorrelated d×d matrices → √2 ≈ 1.414. With `n_null > 0`, repeated random 50/50 splits give the bin-composition null at that (d, n, κ) point.
+
+**`held_out_prediction_check`** fits `A` on 4/5 of guides and evaluates `ρ = ‖A·S_test + U_test‖_F / ‖U_test‖_F` on the held-out fifth (5-fold CV). Perfect linearity, noise-free → 0; zero-predictor → 1. Invariant to global rescaling of `U`.
+
+### 4.6 Simulation protocol and ground-truth construction
+
+For each (d, n_guides, κ_range, σ, model) point:
+
+1. **Draw `J_true`.** *Dense*: entries i.i.d. `N(0, 1/d)` (Ginibre), then shifted as `J ← J − cI` with default `c = 1.5` giving eigenvalue real-part median ≈ −1.5, ensuring stability and a well-conditioned inverse. *Sparse (10%, 2%)*: same Ginibre draw with a random binary mask at the stated density applied to off-diagonal entries, then the same shift. *Rank-5*: `J = BCᵀ` with `B, C ∈ ℝ^(d×5)` i.i.d. normal, then the same shift. **The shift constant is held to the same eigenvalue-median target across all four ensembles**, so the ensembles differ in structure but are matched in nominal stability. Sensitivity of recovery to this shift is reported in Fig. S18 across c ∈ {0.5, 1.0, 1.5, 2.0, 3.0}: full-operator cos stays in [0.02, 0.06]; cos_1 rises from 0.10 at c = 3.0 to 0.93 at c = 0.5, driven by a 40× drop in condition(J⁻¹U). §2.4 discusses the interpretive consequence.
+2. **Draw geometry.** For synthetic-geometry runs, n_guides unit-norm `Wᵀδ_g` and κ_g from the specified distribution; for matched-scale runs (§2.2–2.5), the real `U` and `κ` of the corresponding dataset are used directly.
+3. **Response.** `S = −J⁻¹U` (linear) or `S = sat·tanh(−J⁻¹U/sat)` (saturating, applied elementwise in program space).
+4. **Noise.** Two noise models are supported and produce statistically equivalent recovery outcomes (Fig. S17): (i) i.i.d. Gaussian at per-entry standard deviation σ, used throughout §2 for reproducibility; (ii) residual-resampling from a bank of real per-guide split-half Δz residuals from K562 essential, rescaled so per-entry std matches σ. The residual bank preserves cross-program correlations and heteroscedasticity. At K562 σ and 30 replicates per structure, residual-resampled cosines fall within one replicate SD of i.i.d. Gaussian for full-operator cos, cos_1, and cos_5 across dense, sparse-2%, and rank-5 ground truths (cos: Gaussian +0.030–0.037, residual +0.043–0.054; cos_1: Gaussian +0.10–0.28, residual +0.17–0.35). **The recovery conclusions are therefore noise-model robust.**
+5. **Fit and score.** Run the recovery check (scale-sensitive error, Frobenius cosine, per-direction `cos_k`) or the linearity diagnostics. Fifteen independent draws of `J` and noise for the main tables; 200 replicates for the empirical-null construction in §4.7.
+
+Detection power for a nonlinear alternative is defined as a mean gap between synthetic-linear and synthetic-nonlinear ρ exceeding 1.96× the combined replicate standard deviations.
+
+### 4.7 Null distributions for the recovery metrics
+
+**Analytic random-matrix null** (contextual reference). For two independent matrices in `ℝ^(d×d)` with isotropically distributed orientation, the Frobenius inner product normalized by both norms is the cosine between two uniformly-oriented vectors in `ℝ^(d²)`. That cosine has mean 0 and variance `1/d²`, giving standard deviation `1/d = 0.033` at `d = 30`. For `cos_k` at `k = 1`, the null is the vector-cosine null in `ℝ^d` with standard deviation `1/√d = 0.183`; for general `k`, the null lives in `ℝ^(d·k)` with standard deviation `1/√(dk)`.
+
+**Pipeline-matched empirical null** (primary; Fig. S16). The analytic null is defined against abstract isotropic matrices and does not account for the geometry the anchor-op pipeline imposes on any fit through the real `U`. We construct two pipeline-preserving nulls at N = 200 replicates:
+
+- *Cross-replicate null*: Draw `J_r` for `r ∈ {1..N}`, compute `S_true_r = −J_r⁻¹U`, add noise, fit `A_r = −U·S_obs_r⁺`. For each pair `(r, r')` with `r ≠ r'`, compute `cos(A_r, J_{r'})` (and its cos_k analogues). This preserves the full fitted-operator construction; the only randomization is which ground truth we score against. Under this null, any alignment between the fit and *any* J that shares the tested U-geometry is baseline; excess above it is real signal.
+- *Shuffled-U null*: For each replicate r, refit using a column-permuted U (guide labels shuffled). U's marginal structure is preserved but the guide→ground-truth correspondence is destroyed. Comparison to J_r under this null tests whether the pipeline retains any dataset-specific correspondence, or whether the alignment is entirely a geometric artifact of U.
+
+The K562 result at σ = 0.240 with 200 replicates: real cos(A, J) mean = +0.033 (SE 0.002) vs cross-rep null mean +0.035 (SD 0.034) — indistinguishable, z = −0.05. Real cos_1 mean = +0.290 vs shuffled-U null mean +0.011 with per-replicate SD 0.331 — mean-to-mean z ≈ 12 using SE of the mean SD/√N (real signal on the population mean), but per-replicate z_per-rep = (real_i − null_mean)/null_SD ≈ +0.59 against the cross-rep null and ≈ +0.85 against the shuffled-U null (no single-replicate resolution). See §2.2 for the full table and §2.4 for interpretation.
+
+The empirical null is used to anchor the paper's central claim. The analytic null appears only as a reference in figure shading.
+
+### 4.8 Software
+
+`anchorop` requires only NumPy and pandas at core; scanpy, AnnData, scikit-learn, and matplotlib are optional. `ao.analyses` provides `measurement_report`, `benchmark_report`, and `archetype_report` workflows producing standard figures and JSON/CSV summaries. `ao.load_replogle_h5ad` handles schema variation across the Replogle 2022 h5ads. 56 tests including acceptance-level synthetic recovery, identifiability enforcement, and null-calibration regression.
+
+---
+
+## Supplementary material
+
+- **Fig. S1** — `rank_tol` sensitivity sweep across all measurements.
+- **Fig. S2** — Estimator behavior on pre-scaled z-scored residuals; `detection_rate` recovers `max(0, 0.5 − Φ(Δ/σ_ctrl))` within ±0.05 across ±2 z-units.
+- **Fig. S3** — Cross-format estimator simulation, bias and variance across the (λ_ctrl, κ) grid.
+- **Fig. S4** — Synthetic validation at d = 6: operator recovered to noise level; benchmark separation of exact / noisy-topology / symmetric-only / diagonal-only methods against declared nulls; `rank_tol` guard demonstration.
+- **Fig. S5** — K562 noncoding-element aggregate as a worked example of the estimator filter firing: 58/118 targets dropped as information-limited (all with NT baseline detection <3%), 11 guides surviving at partial rank 11/30, condition 57.6.
+- **Fig. S6** — Full Replogle-RPE1-vs-Jost per-target diagnostic panel across d ∈ {5, 10, 20, 30} and basis scope.
+- **Fig. S7** — Additive→clamp interpolation sweep (d = 6, n = 60): fit error 0.02 → 0.78, eigenvalues shifting toward zero; both linearity diagnostics stay near zero across the whole axis.
+- **Fig. S16** — Pipeline-matched empirical null at N = 200 replicates. Real, cross-replicate-null, and shuffled-U-null distributions for cos, cos_5, cos_1 on K562 and RPE1. Underpins the central claim in §2.2.
+- **Fig. S17** — Noise-model sensitivity: recovery under residual-resampled real Δz noise vs i.i.d. Gaussian at matched σ. Differences within one replicate SD across dense, sparse-2%, and rank-5 ground truths.
+- **Fig. S18** — Ground-truth stability-shift sweep c ∈ {0.5, 1.0, 1.5, 2.0, 3.0}. Full-operator cos ∈ [0.02, 0.06] across c; cos_1 varies 0.09 → 0.93.
+- **Fig. S19** — Per-dataset σ estimation via within-guide split-half bootstrap. K562 σ = 0.240 (ratio 1.02× vs σ_percell/√N), RPE1 σ = 0.352 (ratio 1.15×), Jost 2020 σ = 0.036 per target-aggregate (ratio 0.93×).
 
 ---
 
 ## Data availability
 
-- **Software**: `https://github.com/manarai/anchor-op` (this version: 0.1.0)
-- **Perturb-seq data**: Replogle et al. 2022, gwps.wi.mit.edu / Figshare Plus dataset 20029387
-- **Reproducibility**: pinned conda `environment.yml` (Python 3.11 + all deps), `pytest` suite (33 tests), executed example notebooks with embedded outputs. Installation is `conda env create -f environment.yml && conda activate anchor-op && pip install -e .`
+- **Software**: `https://github.com/manarai/anchor-op`, MIT license, v0.1.0. Every figure is regenerated by one script in `reproduction/`; `bash reproduction/run_all.sh` reproduces all.
+- **Perturb-seq data**: Replogle et al. 2022 — gwps.wi.mit.edu / Figshare Plus deposit 20029387. Jost et al. 2020 — GEO GSE132080.
+- **Reproducibility**: pinned conda `environment.yml` (Python 3.11), 56-test `pytest` suite, executed notebooks with embedded outputs.
 
 ## Author contributions
 
-_[placeholder]_
+*[placeholder]*
 
 ## Competing interests
 
-_[placeholder]_
+*[placeholder]*
 
 ## References
 
-[1] Replogle JM et al. (2022) *Mapping information-rich genotype-phenotype landscapes with genome-scale Perturb-seq.* Cell 185(14):2559–2575.e28. https://doi.org/10.1016/j.cell.2022.05.013
+[1] Replogle JM, Saunders RA, Pogson AN, et al. (2022) Mapping information-rich genotype–phenotype landscapes with genome-scale Perturb-seq. *Cell* 185(14):2559–2575.e28.
 
-[2] Kotliar D et al. (2019) *Identifying gene expression programs of cell-type identity and cellular activity with single-cell RNA-Seq.* eLife 8:e43803.
+[2] Jost M, Santos DA, Saunders RA, et al. (2020) Titrating gene expression using libraries of systematically attenuated CRISPR guide RNAs. *Nature Biotechnology* 38:355–364.
 
-_[Add: CellOracle citation, dynamo citation, scJDO/scOpAtlas citations, do-calculus/Pearl reference, additional single-cell operator-inference references as appropriate for target venue]_
+[3] Kamimoto K, Stringa B, Hoffmann CM, et al. (2023) Dissecting cell identity via network inference and in silico gene perturbation. *Nature* 614:742–751. *[verify author list and page range before submission]*
 
----
+[4] Qiu X, Zhang Y, Martin-Rufino JD, et al. (2022) Mapping transcriptomic vector fields of single cells. *Cell* 185(4):690–711.e45. *[verify before submission]*
 
-## Manuscript scope notes (delete before submission)
+[5] Redd D, Green S, Terooatea TW (2026) scJDO: Inferring time-varying dynamical operators from single-cell transcriptomic data. *[journal TBD]*.
 
-**What is ready to submit as-is:**
-- Every numeric claim reproduces from `pytest -q` (33 tests) plus the executed example notebooks in this repo. Text has been checked against current outputs.
-- All figures are extracted from the executed notebooks and live in `manuscript_figures/`.
-- Preregistration file, SPEC, and README all match the manuscript's claims.
+[6] Kotliar D, Veres A, Nagy MA, et al. (2019) Identifying gene expression programs of cell-type identity and cellular activity with single-cell RNA-Seq. *eLife* 8:e43803.
 
-**What needs manual work before submission to a specific venue:**
-- Journal-specific formatting (LaTeX conversion, figure captions to that journal's style, reference formatting)
-- Author list, affiliations, ORCIDs, correspondence contact
-- References section fleshed out with proper citation of comparison tools (scJDO, CellOracle, dynamo, scOpAtlas), Pearl / Neyman intervention framework, matrix factorization citations
-- Figures may need cross-tool naming — e.g., "Fig. 3" would be one composite figure with subpanels a/b, not two separate PNGs — depending on venue rules
-- Word count varies from ~2500 (current draft) to venue target; trim or expand accordingly
+[7] Pearl J (2009) *Causality: Models, Reasoning, and Inference*, 2nd ed. Cambridge University Press. *[for the intervention-model framing in §3.3; consider also a Neyman–Rubin potential-outcomes reference]*
 
-**What would strengthen the paper if the resources allow:**
-- One third-party benchmark (CellOracle or dynamo on the same Replogle K562 essential-gene data, transformed to program coordinates via `ao.projection_helpers`, dropped into `02_benchmark.ipynb`). Would populate the currently placeholder-only Section 3 discussion of cross-tool comparison. Estimated cost: 1-2 weeks.
-- Additional cell-state measurements to push archetype `k > 1` findings past the current two-state limit. Would require additional essential-gene h5ads matched to different conditions (drug-treated K562, differentiation states, etc.). Not required for the current story but would allow a Section 3.6 upgrade from "k=1, more states would help" to "k=N, here are the archetypes."
-
-**Not required for this paper:**
-- A biological interpretation of the recovered K562 or RPE1 operator eigenvalues (that would be a separate biology paper). The current draft treats those as validation of the identification, not as biological discovery.
-- Resolution of the additive-vs-intervention model mismatch (documented but not fixed). The paper's honest position is: "additive-input operator is a defensible measurement of that specific idealization; the intervention model would give different numbers, and it can't be fit in program coordinates."
+*[Still required: a citation for scOpAtlas if retained anywhere in the text; a primary reference for the additive-input vs. intervention distinction in dynamical-systems identification, to support the `MATH.md` §5 under-identification claim rather than relying on the repository alone.]*

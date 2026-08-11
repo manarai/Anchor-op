@@ -127,6 +127,7 @@ class AnchorReport:
     full_domain_identified: bool
     rank_tol: float | None = None
     guide_efficiencies: Mapping[str, float] = field(default_factory=dict)
+    guide_targets: Mapping[str, str] = field(default_factory=dict)
     bootstrap_covariance: np.ndarray | None = None
     bootstrap_actions: np.ndarray | None = None
     notes: tuple[str, ...] = ()
@@ -160,6 +161,9 @@ class AnchorReport:
         object.__setattr__(self, "retained_guides", tuple(map(str, self.retained_guides)))
         object.__setattr__(self, "dropped_guides", dict(self.dropped_guides))
         object.__setattr__(self, "guide_efficiencies", dict(self.guide_efficiencies))
+        object.__setattr__(
+            self, "guide_targets", {str(key): str(value) for key, value in self.guide_targets.items()}
+        )
         object.__setattr__(self, "notes", tuple(self.notes))
 
     @property
@@ -187,6 +191,7 @@ class AnchorReport:
             "singular_values": self.singular_values.tolist(),
             "retained_singular_directions": self.retained_singular_directions.tolist(),
             "guide_efficiencies": dict(self.guide_efficiencies),
+            "guide_targets": dict(self.guide_targets),
             "notes": list(self.notes),
         }
 
@@ -340,19 +345,24 @@ class TransferResult:
 class LinearityResult:
     """Weak/strong knockdown-bin diagnostic for the local linearity assumption.
 
+    ``passed`` uses **only** the preregistered raw-diff criterion
+    (``relative_difference ≤ threshold``). The 0.25 threshold in
+    ``PREREGISTRATION.md`` is locked to the raw statistic and does not
+    transfer to derived quantities.
+
     When a random-split null is supplied (``n_null > 0`` passed to
-    :func:`anchorop.linearity_check`), the raw ``relative_difference`` becomes
-    interpretable only *above* the null floor. The failure a naive read of
-    rel_diff attributes to broken linearity is largely bin-composition
-    artifact: different guide subsets sample different columns of J and so
-    identify different sub-operators even under perfect linearity. See
-    ``examples/05_linearity_diagnostics.ipynb`` for the K562/RPE1 breakdown
-    that motivated this.
+    :func:`anchorop.linearity_check`), the ``null_median``, ``null_std``,
+    ``null_p95``, ``excess_above_null``, and ``z_score`` fields characterize
+    the bin-composition floor of the diagnostic itself: different guide
+    subsets sample different columns of J and identify different sub-operators
+    even under perfect linearity, so the naive raw-diff has an irreducible
+    floor. These fields are **informative diagnostics** for interpreting a
+    raw-diff failure — not a substitute pass/fail criterion. See
+    ``MANUSCRIPT.md`` §3.5 for the framing and dynamic-range discussion.
 
     ``excess_above_null`` is ``relative_difference - null_median``. It is the
     part of the observed disagreement that a random 50/50 split of the same
-    guide set would *not* reproduce — i.e. the real dose-response or
-    model-mismatch contribution.
+    guide set would *not* reproduce.
     """
 
     weak_action: np.ndarray
@@ -377,3 +387,133 @@ class LinearityResult:
         )
         object.__setattr__(self, "weak_guides", tuple(map(str, self.weak_guides)))
         object.__setattr__(self, "strong_guides", tuple(map(str, self.strong_guides)))
+
+
+@dataclass(frozen=True)
+class HeldOutPredictionResult:
+    """Out-of-sample linearity diagnostic invariant to κ column scaling.
+
+    From the identity ``J·S_g = -U_g`` for every guide g under the additive-
+    input linear settled-state model, fit ``A = J·P_X`` on train guides and
+    evaluate the residual ``ρ = ||A·S_test + U_test||_F / ||U_test||_F`` on
+    held-out guides (k-fold CV). Under perfect linearity + noise-free
+    measurement, ``ρ → 0``; under a naive zero-predictor, ``ρ = 1``.
+
+    Unlike :class:`LinearityResult`'s median-split diagnostic, this metric is
+    algebraically invariant to global rescaling of ``U``. It is near-invariant
+    to per-column κ rescaling only in the zero-predictor regime; outside that
+    regime it is not invariant. Both diagnostics are noise-limited at
+    published Perturb-seq scale (d≈30, n≈200, per-guide σ≈0.27) — interpret
+    observed values against a matched-scale synthetic linear positive control
+    per MANUSCRIPT.md §3.5–§3.6 and Fig. S10.
+
+    When ``n_permutation_null > 0`` is passed, a shuffled-U↔S null
+    distribution is reported to calibrate ``ρ`` against random column
+    permutations of the same S and U matrices.
+    """
+
+    rho_pooled: float
+    rho_per_fold: tuple[float, ...]
+    n_folds_used: int
+    n_folds_requested: int
+    null_median: float | None = None
+    null_std: float | None = None
+    z_score: float | None = None
+    n_permutation_null: int = 0
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "rho_per_fold", tuple(map(float, self.rho_per_fold)))
+
+
+@dataclass(frozen=True)
+class TargetResponseAtlas:
+    """A descriptive, target-level response artifact for biological screens.
+
+    This object is intentionally **not** a Jacobian or inverse-operator estimate.
+    It records robust consensus response vectors across guides that share a target,
+    together with guide-concordance diagnostics.  It is the appropriate public
+    output when the screen supplies response geometry but not a paired raw/count
+    assay that can calibrate target knockdown strengths.
+    """
+
+    target_names: tuple[str, ...]
+    responses: np.ndarray
+    n_guides: Mapping[str, int]
+    n_cells: Mapping[str, int]
+    mean_pairwise_cosine: Mapping[str, float]
+    guide_names_by_target: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    response_representation: str = "descriptive"
+    calibrated: bool = False
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        responses = np.asarray(self.responses, dtype=float)
+        if responses.ndim != 2:
+            raise AnchorOpError("TargetResponseAtlas.responses must be target-by-program.")
+        names = tuple(map(str, self.target_names))
+        if responses.shape[0] != len(names):
+            raise AnchorOpError("TargetResponseAtlas.target_names must align with response rows.")
+        if len(set(names)) != len(names):
+            raise AnchorOpError("TargetResponseAtlas.target_names must be unique.")
+        if not np.isfinite(responses).all():
+            raise AnchorOpError("TargetResponseAtlas.responses contains non-finite values.")
+        object.__setattr__(self, "target_names", names)
+        object.__setattr__(self, "responses", responses.copy())
+        object.__setattr__(self, "n_guides", {str(key): int(value) for key, value in self.n_guides.items()})
+        object.__setattr__(self, "n_cells", {str(key): int(value) for key, value in self.n_cells.items()})
+        object.__setattr__(
+            self,
+            "mean_pairwise_cosine",
+            {str(key): float(value) for key, value in self.mean_pairwise_cosine.items()},
+        )
+        object.__setattr__(
+            self,
+            "guide_names_by_target",
+            {
+                str(key): tuple(map(str, value))
+                for key, value in self.guide_names_by_target.items()
+            },
+        )
+        object.__setattr__(self, "notes", tuple(map(str, self.notes)))
+
+    @property
+    def d(self) -> int:
+        """Number of response-coordinate dimensions."""
+        return int(self.responses.shape[1])
+
+
+@dataclass(frozen=True)
+class DoseResponseResult:
+    """Within-target guide efficiency-versus-response diagnostic.
+
+    A target contributes only when it has at least three independently calibrated
+    guides.  ``r_squared_by_target`` describes a simple linear relationship
+    between calibrated raw-count knockdown strength and response magnitude; it
+    is an assay/model diagnostic, not evidence for a system-wide operator.
+    """
+
+    target_names: tuple[str, ...]
+    r_squared_by_target: Mapping[str, float]
+    response_cosine_by_target: Mapping[str, float]
+    n_guides_by_target: Mapping[str, int]
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        names = tuple(map(str, self.target_names))
+        object.__setattr__(self, "target_names", names)
+        object.__setattr__(
+            self,
+            "r_squared_by_target",
+            {str(key): float(value) for key, value in self.r_squared_by_target.items()},
+        )
+        object.__setattr__(
+            self,
+            "response_cosine_by_target",
+            {str(key): float(value) for key, value in self.response_cosine_by_target.items()},
+        )
+        object.__setattr__(
+            self,
+            "n_guides_by_target",
+            {str(key): int(value) for key, value in self.n_guides_by_target.items()},
+        )
+        object.__setattr__(self, "notes", tuple(map(str, self.notes)))

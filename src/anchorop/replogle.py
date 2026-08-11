@@ -81,6 +81,7 @@ def load_replogle_h5ad(
     canonical_nt_label: str = "non-targeting",
     canonical_guide_key: str = "guide",
     canonical_target_key: str = "target_gene",
+    backed: str | None = None,
 ) -> "AnnData":
     """Load a Replogle processed h5ad and normalize its schema for anchor-op.
 
@@ -105,6 +106,10 @@ def load_replogle_h5ad(
         The labels the returned AnnData will present. Defaults match what the
         rest of anchor-op assumes (``measure_operator(..., control_label="non-targeting",
         guide_key="guide", target_key="target_gene")``).
+    backed
+        Optional AnnData backed mode (for example ``"r"``) used to keep a
+        multi-gigabyte H5AD expression matrix on disk. Metadata normalization
+        remains in memory, but ``adata.X`` is not materialized.
 
     Returns
     -------
@@ -121,7 +126,7 @@ def load_replogle_h5ad(
             "load_replogle_h5ad requires anndata. Install with `pip install anndata`."
         ) from error
 
-    adata = anndata.read_h5ad(path)
+    adata = anndata.read_h5ad(path, backed=backed)
 
     obs_cols = set(adata.obs.columns)
     target_col = target_col or _pick(obs_cols, _TARGET_COL_CANDIDATES)
@@ -186,6 +191,7 @@ def load_replogle_h5ad(
         "canonical_control_label": canonical_nt_label,
         "canonical_guide_key": canonical_guide_key,
         "canonical_target_key": canonical_target_key,
+        "backed": backed,
     })
 
     return adata

@@ -41,7 +41,9 @@ def expression_and_metadata(adata: Any) -> tuple[np.ndarray, pd.DataFrame, tuple
         raise AnchorOpError("adata.X columns must align with adata.var_names.")
     if len(set(gene_names)) != len(gene_names):
         raise AnchorOpError("adata.var_names must be unique for target-gene encoding.")
-    return X, obs.reset_index(drop=True), gene_names
+    # Preserve the observation index: paired raw and response assays must be
+    # verified at the cell-identifier level, not merely by matching row counts.
+    return X, obs.copy(), gene_names
 
 
 def resolve_mask(mask: Any, n: int, name: str = "mask") -> np.ndarray:

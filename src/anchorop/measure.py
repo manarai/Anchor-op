@@ -17,7 +17,15 @@ from ._utils import (
 )
 from .identifiability import make_anchor_report, regularized_pseudoinverse
 from .programs import project_expression
-from .types import AnchorOpError, LinearityResult, MeasuredOperator, ProgramBasis
+from .types import (
+    AnchorOpError,
+    HeldOutPredictionResult,
+    LinearityResult,
+    MeasuredOperator,
+    ProgramBasis,
+    TargetResponseAtlas,
+    DoseResponseResult,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +38,8 @@ class GuideResponse:
     input_vector: np.ndarray
     efficiency: float
     n_cells: int
+    calibrated: bool = True
+    efficiency_provenance: str = "same_assay_count_like"
 
 
 def _matched_mean(
@@ -103,10 +113,11 @@ def estimate_knockdown_efficiency(
 
     This is the most precise estimator when the target gene is well expressed
     in controls. It degenerates to 1.0 whenever the control mean approaches
-    zero — the "dropout-driven pseudo-perfect knockdown" pathology documented
-    in ``examples/05_linearity_diagnostics.ipynb`` for lncRNA / low-baseline
-    targets. Use :func:`estimate_knockdown_efficiency_detection_rate` on data
-    where target baseline expression may be near the dropout floor.
+    zero — the "dropout-driven pseudo-perfect knockdown" pathology. Pair with
+    ``min_control_detection_rate`` in :func:`build_guide_responses` to filter
+    information-limited targets before estimation. See MANUSCRIPT.md §2.3 and
+    §3.2 and ``tutorial/02_efficiency_estimators.ipynb`` for the full estimator
+    regime and when to use which.
     """
     target_values = expression[:, [target_index]]
     control_mean = float(
@@ -131,16 +142,15 @@ def estimate_knockdown_efficiency_detection_rate(
     control_mask: np.ndarray,
     batches: np.ndarray | None = None,
 ) -> float:
-    """Estimate guide efficiency from the drop in target-transcript detection rate.
+    """Return the raw detection-probability shift `Pr[X_ctrl>0] − Pr[X_pert>0]`.
 
-    ``detection_rate(cells) = fraction of cells with any UMI for the target``.
-    ``efficiency = max(0, detection_ctrl - detection_pert)``.
-
-    Robust to dropout at low-baseline targets because it does not divide by a
-    near-zero mean. Slightly less precise than the mean-ratio estimator at
-    high-baseline targets, where both estimators agree closely. On the K562
-    aggregate this reduces the 1.0-spike from 35 to 0 guides and improves the
-    linearity check by ~12×. See ``examples/05_linearity_diagnostics.ipynb``.
+    NOT an unbiased estimator of `κ = 1 − E[X_pert]/E[X_ctrl]`. Under a Poisson
+    model with `λ_pert = (1−κ)·λ_ctrl`, this quantity equals
+    `exp(−(1−κ)λ_ctrl) − exp(−λ_ctrl)`, which is proportional to `κ` only in the
+    low-`λ_ctrl` limit and saturates to 0 at high baseline. Preserved for
+    backward compatibility and as a bounded regularizer against the dropout-
+    driven 1.0-spike; prefer :func:`estimate_knockdown_efficiency_poisson_mle`
+    for a `κ` estimate that remains valid across the baseline range.
     """
     target_values = expression[:, target_index]
     if batches is None:
@@ -161,10 +171,150 @@ def estimate_knockdown_efficiency_detection_rate(
     return float(np.clip(ctrl_det - pert_det, 0.0, 1.0))
 
 
+def estimate_knockdown_efficiency_poisson_mle(
+    expression: np.ndarray,
+    *,
+    target_index: int,
+    perturbed_mask: np.ndarray,
+    control_mask: np.ndarray,
+    batches: np.ndarray | None = None,
+    detection_floor: float = 1e-6,
+    detection_ceiling: float = 1.0 - 1e-6,
+) -> float:
+    """Estimate `κ = 1 − λ_pert/λ_ctrl` via Poisson MLE from detection rates.
+
+    Under the Poisson observation model `X ~ Poisson(λ)`,
+    `Pr[X > 0] = 1 − exp(−λ)`, so `λ̂ = −log(1 − detection_rate)` is the moment
+    estimator of `λ` from the binary indicator `X > 0`. This estimator
+    - is unbiased for `κ` at low-to-moderate baseline expression (the regime
+      where :func:`estimate_knockdown_efficiency` spikes to 1.0 due to dropout);
+    - degrades gracefully at very low expression (where few cells detect) and
+      near saturation (where `1 − detection_rate` approaches zero);
+    - falls back to :func:`estimate_knockdown_efficiency` when control
+      detection is outside `[detection_floor, detection_ceiling]`, i.e. when
+      the detection moment is uninformative.
+
+    Under zero-inflation independent of `λ`, this estimator is conservative:
+    it attributes some structural zeros to Poisson, overstating `λ` and thus
+    understating `κ`. The bias direction is deliberate — better to report a
+    smaller `κ̂` than to spike to 1.0 on a lncRNA with 3 nonzero cells.
+    """
+    target_values = expression[:, target_index]
+    if batches is None:
+        ctrl_vals = target_values[control_mask]
+        ctrl_det = float((ctrl_vals > 0).mean())
+        ctrl_mean = float(ctrl_vals.mean())
+    else:
+        pert_batches = batches[perturbed_mask]
+        total = 0
+        det_sum = 0.0
+        mean_sum = 0.0
+        for batch in np.unique(pert_batches):
+            n_perturbed = int(np.sum(pert_batches == batch))
+            batch_controls = control_mask & (batches == batch)
+            if not np.any(batch_controls):
+                raise AnchorOpError(f"No matched control cells for batch {batch!r}.")
+            batch_ctrl_vals = target_values[batch_controls]
+            det_sum += n_perturbed * float((batch_ctrl_vals > 0).mean())
+            mean_sum += n_perturbed * float(batch_ctrl_vals.mean())
+            total += n_perturbed
+        ctrl_det = det_sum / total
+        ctrl_mean = mean_sum / total
+    pert_vals = target_values[perturbed_mask]
+    pert_det = float((pert_vals > 0).mean())
+    pert_mean = float(pert_vals.mean())
+
+    if ctrl_det < detection_floor or ctrl_det > detection_ceiling:
+        if ctrl_mean <= 1e-8:
+            return 0.0
+        return float(np.clip(1.0 - pert_mean / ctrl_mean, 0.0, 1.0))
+
+    lam_ctrl = -np.log(1.0 - ctrl_det)
+    lam_pert = -np.log(max(1e-12, 1.0 - pert_det))
+    if lam_ctrl <= 1e-12:
+        return 0.0
+    return float(np.clip(1.0 - lam_pert / lam_ctrl, 0.0, 1.0))
+
+
 _EFFICIENCY_ESTIMATORS = {
     "mean_ratio": estimate_knockdown_efficiency,
     "detection_rate": estimate_knockdown_efficiency_detection_rate,
+    "poisson_mle": estimate_knockdown_efficiency_poisson_mle,
 }
+
+
+def _looks_pre_scaled(
+    X: np.ndarray, *, negative_fraction_threshold: float = 0.02
+) -> bool:
+    """Return True when ``X`` looks like pre-scaled residuals (has meaningful
+    negative values) rather than counts / normalized counts.
+
+    A single stray negative from numerical noise should not trip this; a real
+    residual matrix will have a substantial negative mass. Two percent of
+    entries is far above numerical-noise thresholds and far below the ~50%
+    negatives a z-score matrix typically has.
+    """
+    sample = X
+    if sample.size > 200_000:
+        rng = np.random.default_rng(0)
+        idx = rng.choice(sample.size, size=200_000, replace=False)
+        sample = sample.ravel()[idx]
+    negative_fraction = float((sample < 0).mean())
+    return negative_fraction >= negative_fraction_threshold
+
+
+def _resolve_estimator(name: str, X: np.ndarray) -> str:
+    """Turn an ``efficiency_estimator`` argument into a concrete estimator key.
+
+    Explicit choices pass through unchanged. ``"auto"`` inspects ``X`` and
+    routes to ``"detection_rate"`` on pre-scaled residual matrices (where
+    ``mean_ratio`` is undefined because controls are centered near zero) and
+    to ``"mean_ratio"`` on count-like matrices (where the mean_ratio MLE is
+    unbiased under Poisson and Poisson-with-dropout observation).
+    """
+    if name != "auto":
+        return name
+    if _looks_pre_scaled(X):
+        return "detection_rate"
+    return "mean_ratio"
+
+
+def _require_paired_assay_alignment(
+    response_obs: Any,
+    calibration_obs: Any,
+    *,
+    guide_key: str,
+    target_key: str | None,
+    batch_key: str | None,
+) -> None:
+    """Refuse a raw/response pairing unless cells and key annotations match exactly."""
+    if len(response_obs) != len(calibration_obs):
+        raise AnchorOpError(
+            "calibration_adata must have exactly the same number of cells as the response adata."
+        )
+    response_ids = tuple(map(str, response_obs.index))
+    calibration_ids = tuple(map(str, calibration_obs.index))
+    if response_ids != calibration_ids:
+        raise AnchorOpError(
+            "calibration_adata must have identical cell identifiers in identical order; "
+            "do not pair independently filtered or reordered assays."
+        )
+    keys = [guide_key]
+    if target_key is not None:
+        keys.append(target_key)
+    if batch_key is not None:
+        keys.append(batch_key)
+    for key in keys:
+        if key not in response_obs.columns or key not in calibration_obs.columns:
+            raise AnchorOpError(
+                f"Paired calibration requires obs[{key!r}] in both response and calibration assays."
+            )
+        response_values = response_obs[key].astype(str).to_numpy()
+        calibration_values = calibration_obs[key].astype(str).to_numpy()
+        if not np.array_equal(response_values, calibration_values):
+            raise AnchorOpError(
+                f"Paired calibration requires identical obs[{key!r}] values in row order."
+            )
 
 
 def build_guide_responses(
@@ -178,34 +328,111 @@ def build_guide_responses(
     batch_key: str | None = None,
     min_cells_per_guide: int = 10,
     min_knockdown_efficiency: float = 0.05,
+    min_control_detection_rate: float = 0.05,
     loading_tol: float = 1e-8,
-    efficiency_estimator: str = "detection_rate",
+    efficiency_estimator: str = "auto",
+    calibration_adata: Any | None = None,
+    allow_proxy_efficiency: bool = False,
 ) -> tuple[list[GuideResponse], dict[str, str]]:
     """Estimate guide-level ``Δz`` and perturbation inputs from an AnnData-like input.
 
     The target transcript is used only to estimate guide efficacy. Its program
     encoding is the corresponding loading row, not a one-hot program vector.
 
-    ``efficiency_estimator`` selects how per-guide knockdown efficiency `κ` is
-    computed from the target transcript:
-    - ``"detection_rate"`` (default): fraction of cells with any UMI for the
-      target drops from control to perturbed. Robust to dropout at low-baseline
-      targets — dissolves the pseudo-perfect-knockdown pathology.
-    - ``"mean_ratio"``: classical `1 - mean_pert / mean_ctrl`. More precise for
-      high-baseline targets but degenerates to 1.0 whenever control mean is at
-      the dropout floor. Kept for backward compatibility.
+    ``efficiency_estimator`` selects how per-guide efficiency is computed:
+
+    - ``"auto"`` (default): inspect the expression matrix and route by format.
+      Count-like data (all-nonnegative, or with a dropout-shaped zero mass) →
+      ``"mean_ratio"``, which is the unbiased MLE of ``κ = 1 − E[X_pert]/
+      E[X_ctrl]`` under Poisson and Poisson-with-dropout observation. Pre-
+      scaled residuals (contain meaningful negative values, e.g. z-scored
+      Perturb-seq h5ads such as Replogle 2022 essential-gene) → ``"detection_
+      rate"``, which is a signed distributional-shift statistic on that data
+      class (see below).
+    - ``"mean_ratio"``: classical ``1 − mean_pert / mean_ctrl``. Sample-moment
+      MLE under Poisson; still unbiased under independent zero-inflation
+      (scRNA-seq dropout) because the dropout fraction cancels in the ratio.
+      Undefined on data where the control mean is not bounded away from zero
+      (pre-scaled residuals). Combine with ``min_control_detection_rate`` to
+      drop information-limited targets rather than silently spiking to 0 or 1.
+    - ``"poisson_mle"``: ``1 − λ̂_pert / λ̂_ctrl`` with ``λ̂ = −log(1 −
+      detection)``. Equivalent to mean_ratio under pure Poisson; biased
+      downward under independent zero-inflation. Included for completeness.
+    - ``"detection_rate"``: the raw shift ``Pr[X_ctrl>0] − Pr[X_pert>0]``. On
+      count data this is NOT an unbiased estimator of ``κ`` — it is a bounded
+      shift diagnostic that scales with baseline expression. On pre-scaled
+      residuals (where controls have mean ≈ 0 by construction), it recovers a
+      valid signed distributional-shift statistic monotone in the perturbation
+      shift ``Δ``: analytically ``0.5 − Φ(Δ/σ_ctrl)`` under a Gaussian
+      approximation. This is what makes it the ``auto`` choice on pre-scaled
+      data.
+
+    ``min_control_detection_rate`` (default 0.05) drops any target whose
+    control fraction of positive values is below the threshold. On count data
+    this filters information-limited targets whose few nonzero controls make
+    any estimator dominated by discretization noise.
+
+    For signed normalized/residual response matrices, provide an exactly
+    cell-aligned ``calibration_adata`` holding raw/count-like target expression.
+    The response geometry is calculated from ``adata`` while κ is estimated only
+    from ``calibration_adata``. Without it, this routine refuses inverse-model
+    inputs unless ``allow_proxy_efficiency=True`` is set explicitly; proxy
+    outputs are labelled uncalibrated and must not be used for biological
+    operator claims.
     """
     if min_cells_per_guide < 1:
         raise AnchorOpError("min_cells_per_guide must be positive.")
     if not 0 <= min_knockdown_efficiency <= 1:
         raise AnchorOpError("min_knockdown_efficiency must lie in [0, 1].")
-    if efficiency_estimator not in _EFFICIENCY_ESTIMATORS:
+    if not 0 <= min_control_detection_rate <= 1:
+        raise AnchorOpError("min_control_detection_rate must lie in [0, 1].")
+    if efficiency_estimator != "auto" and efficiency_estimator not in _EFFICIENCY_ESTIMATORS:
         raise AnchorOpError(
-            f"efficiency_estimator must be one of {sorted(_EFFICIENCY_ESTIMATORS)}; "
+            f"efficiency_estimator must be 'auto' or one of {sorted(_EFFICIENCY_ESTIMATORS)}; "
             f"got {efficiency_estimator!r}."
         )
-    efficiency_fn = _EFFICIENCY_ESTIMATORS[efficiency_estimator]
     X, obs, gene_names = expression_and_metadata(adata)
+    response_is_residual = _looks_pre_scaled(X)
+    calibration_X = X
+    calibration_obs = obs
+    calibration_gene_names = gene_names
+    calibrated = not response_is_residual
+    efficiency_provenance = "same_assay_count_like"
+    if calibration_adata is not None:
+        calibration_X, calibration_obs, calibration_gene_names = expression_and_metadata(
+            calibration_adata
+        )
+        _require_paired_assay_alignment(
+            obs,
+            calibration_obs,
+            guide_key=guide_key,
+            target_key=target_key,
+            batch_key=batch_key,
+        )
+        if _looks_pre_scaled(calibration_X):
+            raise AnchorOpError(
+                "calibration_adata appears to contain signed normalized/residual values; "
+                "raw/count-like target expression is required for quantitative κ calibration."
+            )
+        calibrated = True
+        efficiency_provenance = "paired_raw_count_assay"
+    elif response_is_residual and not allow_proxy_efficiency:
+        raise AnchorOpError(
+            "The response matrix appears signed normalized/residual-like and cannot calibrate κ. "
+            "Provide an exactly paired raw/count-like calibration_adata, or set "
+            "allow_proxy_efficiency=True only for explicitly uncalibrated exploratory outputs."
+        )
+    elif response_is_residual:
+        calibrated = False
+        efficiency_provenance = "uncalibrated_signed_response_proxy"
+
+    resolved_estimator = _resolve_estimator(efficiency_estimator, calibration_X)
+    if not calibrated:
+        # A residual-space sign/detection statistic is descriptive only, never κ.
+        resolved_estimator = "detection_rate"
+    efficiency_fn = _EFFICIENCY_ESTIMATORS[resolved_estimator]
+    if resolved_estimator == "detection_rate":
+        min_control_detection_rate = 0.0
     guides = require_column(obs, guide_key).astype(str).to_numpy()
     controls = guides == str(control_label)
     if not np.any(controls):
@@ -219,7 +446,8 @@ def build_guide_responses(
     targets_by_guide, dropped = _derive_targets(
         guides, target_values, guide_to_target, control_label
     )
-    source_gene_index = {gene: index for index, gene in enumerate(gene_names)}
+    response_gene_index = {gene: index for index, gene in enumerate(gene_names)}
+    calibration_gene_index = {gene: index for index, gene in enumerate(calibration_gene_names)}
     z = project_expression(X, basis, gene_names=gene_names)
     responses: list[GuideResponse] = []
 
@@ -229,8 +457,19 @@ def build_guide_responses(
         if n_cells < min_cells_per_guide:
             dropped[guide] = f"fewer_than_{min_cells_per_guide}_guide_positive_cells"
             continue
-        if target not in source_gene_index:
-            dropped[guide] = "target_gene_absent_from_expression_matrix"
+        if target not in response_gene_index:
+            dropped[guide] = "target_gene_absent_from_response_matrix"
+            continue
+        if target not in calibration_gene_index:
+            dropped[guide] = "target_gene_absent_from_calibration_matrix"
+            continue
+        target_col = calibration_X[:, calibration_gene_index[target]]
+        ctrl_detection = float((target_col[controls] > 0).mean())
+        if ctrl_detection < min_control_detection_rate:
+            dropped[guide] = (
+                f"control_detection_below_{min_control_detection_rate}_"
+                f"info_limited_target"
+            )
             continue
         try:
             matched_z = _matched_mean(
@@ -240,8 +479,8 @@ def build_guide_responses(
                 batches=batches,
             )
             efficiency = efficiency_fn(
-                X,
-                target_index=source_gene_index[target],
+                calibration_X,
+                target_index=calibration_gene_index[target],
                 perturbed_mask=perturbed,
                 control_mask=controls,
                 batches=batches,
@@ -249,7 +488,7 @@ def build_guide_responses(
         except AnchorOpError as error:
             dropped[guide] = f"unmatched_controls: {error}"
             continue
-        if efficiency < min_knockdown_efficiency:
+        if calibrated and efficiency < min_knockdown_efficiency:
             dropped[guide] = "insufficient_target_transcript_knockdown"
             continue
         basis_gene_index = {gene: index for index, gene in enumerate(basis.gene_names)}
@@ -271,11 +510,169 @@ def build_guide_responses(
                 input_vector=input_vector,
                 efficiency=efficiency,
                 n_cells=n_cells,
+                calibrated=calibrated,
+                efficiency_provenance=efficiency_provenance,
             )
         )
     if not responses:
         raise AnchorOpError("No informative perturbation guides remain after required filtering.")
     return responses, dropped
+
+
+def _cosine(left: np.ndarray, right: np.ndarray) -> float:
+    """Return a stable cosine similarity, or NaN for a zero-norm vector."""
+    scale = float(np.linalg.norm(left) * np.linalg.norm(right))
+    return float(np.dot(left, right) / scale) if scale > np.finfo(float).eps else float("nan")
+
+
+def build_target_response_atlas(
+    responses: Sequence[GuideResponse],
+    *,
+    minimum_guides: int = 1,
+) -> TargetResponseAtlas:
+    """Robustly aggregate guide-level response geometry at the target level.
+
+    The returned atlas is deliberately a **descriptive** biological artifact.
+    It does not invert a response matrix and does not assert that guide labels or
+    proxy scores are scalar perturbation doses.  For each target, coordinatewise
+    medians reduce the leverage of a discordant guide, while mean pairwise cosine
+    exposes whether the guides agree on a shared response direction.
+    """
+    if minimum_guides < 1:
+        raise AnchorOpError("minimum_guides must be positive.")
+    groups: dict[str, list[GuideResponse]] = {}
+    for record in responses:
+        groups.setdefault(str(record.target), []).append(record)
+    target_names: list[str] = []
+    vectors: list[np.ndarray] = []
+    n_guides: dict[str, int] = {}
+    n_cells: dict[str, int] = {}
+    concordance: dict[str, float] = {}
+    guide_names: dict[str, tuple[str, ...]] = {}
+    for target in sorted(groups):
+        records = groups[target]
+        if len(records) < minimum_guides:
+            continue
+        response_matrix = np.vstack([record.response for record in records])
+        if not np.isfinite(response_matrix).all():
+            raise AnchorOpError(f"Non-finite response encountered for target {target!r}.")
+        pairwise = [
+            _cosine(response_matrix[left], response_matrix[right])
+            for left in range(len(records))
+            for right in range(left + 1, len(records))
+        ]
+        target_names.append(target)
+        vectors.append(np.median(response_matrix, axis=0))
+        n_guides[target] = len(records)
+        n_cells[target] = int(sum(record.n_cells for record in records))
+        concordance[target] = float(np.nanmean(pairwise)) if pairwise else float("nan")
+        guide_names[target] = tuple(record.guide for record in records)
+    if not vectors:
+        raise AnchorOpError("No targets satisfy the target-response atlas guide-count requirement.")
+    return TargetResponseAtlas(
+        target_names=tuple(target_names),
+        responses=np.vstack(vectors),
+        n_guides=n_guides,
+        n_cells=n_cells,
+        mean_pairwise_cosine=concordance,
+        guide_names_by_target=guide_names,
+        response_representation="matched_program_response",
+        calibrated=all(record.calibrated for record in responses),
+        notes=(
+            "Target vectors are coordinatewise medians of retained guide responses.",
+            "This atlas is descriptive and is not a biological operator or Jacobian estimate.",
+        ),
+    )
+
+
+def within_target_dose_response(
+    responses: Sequence[GuideResponse],
+    *,
+    minimum_guides: int = 3,
+) -> DoseResponseResult:
+    """Test whether calibrated guide strengths track a shared target response.
+
+    This diagnostic is intentionally unavailable for residual-space proxy
+    efficiencies. A response-atlas should be used instead when raw/count-like
+    calibration is not paired to the response assay.
+    """
+    if minimum_guides < 3:
+        raise AnchorOpError("minimum_guides must be at least three for a dose-response check.")
+    if any(not record.calibrated for record in responses):
+        raise AnchorOpError(
+            "Within-target dose-response requires raw/count-calibrated guide efficiencies; "
+            "uncalibrated proxy responses cannot establish a guide-dose relationship."
+        )
+    groups: dict[str, list[GuideResponse]] = {}
+    for record in responses:
+        groups.setdefault(str(record.target), []).append(record)
+    names: list[str] = []
+    r_squared: dict[str, float] = {}
+    mean_cosine: dict[str, float] = {}
+    n_guides: dict[str, int] = {}
+    for target in sorted(groups):
+        records = groups[target]
+        if len(records) < minimum_guides:
+            continue
+        efficiencies = np.asarray([record.efficiency for record in records], dtype=float)
+        norms = np.asarray([np.linalg.norm(record.response) for record in records], dtype=float)
+        if np.ptp(efficiencies) <= np.finfo(float).eps or np.ptp(norms) <= np.finfo(float).eps:
+            score = float("nan")
+        else:
+            coefficients = np.polyfit(efficiencies, norms, deg=1)
+            fitted = np.polyval(coefficients, efficiencies)
+            total = float(np.sum((norms - norms.mean()) ** 2))
+            score = float(1.0 - np.sum((norms - fitted) ** 2) / total)
+        vectors = np.vstack([record.response for record in records])
+        pairwise = [
+            _cosine(vectors[left], vectors[right])
+            for left in range(len(records))
+            for right in range(left + 1, len(records))
+        ]
+        names.append(target)
+        r_squared[target] = score
+        mean_cosine[target] = float(np.nanmean(pairwise)) if pairwise else float("nan")
+        n_guides[target] = len(records)
+    return DoseResponseResult(
+        target_names=tuple(names),
+        r_squared_by_target=r_squared,
+        response_cosine_by_target=mean_cosine,
+        n_guides_by_target=n_guides,
+        notes=(
+            "R-squared describes guide κ versus response-norm association within target.",
+            "It is a necessary assay/model diagnostic, not by itself an operator-validity result.",
+        ),
+    )
+
+
+def _aggregate_replicate_guides(responses: Sequence[GuideResponse]) -> list[GuideResponse]:
+    """Collapse same-target guide replicates using robust medians before inversion."""
+    groups: dict[str, list[GuideResponse]] = {}
+    for record in responses:
+        groups.setdefault(str(record.target), []).append(record)
+    aggregated: list[GuideResponse] = []
+    for target in sorted(groups):
+        records = groups[target]
+        # Preserve historical guide-level identity where no replicate guide
+        # exists; collapse only genuinely duplicated target interventions.
+        if len(records) == 1:
+            aggregated.append(records[0])
+            continue
+        aggregated.append(
+            GuideResponse(
+                guide=target,
+                target=target,
+                response=np.median(np.vstack([record.response for record in records]), axis=0),
+                input_vector=np.median(np.vstack([record.input_vector for record in records]), axis=0),
+                efficiency=float(np.median([record.efficiency for record in records])),
+                n_cells=int(sum(record.n_cells for record in records)),
+                calibrated=all(record.calibrated for record in records),
+                efficiency_provenance="target_median_of_" + "+".join(
+                    sorted({record.efficiency_provenance for record in records})
+                ),
+            )
+        )
+    return aggregated
 
 
 def _bootstrap_actions(
@@ -315,6 +712,7 @@ def measure_from_sensitivity(
     *,
     guide_names: Sequence[str] | None = None,
     guide_efficiencies: Mapping[str, float] | None = None,
+    guide_targets: Mapping[str, str] | None = None,
     dropped_guides: Mapping[str, str] | None = None,
     reg: str = "tsvd",
     reg_param: str | float | int = "path",
@@ -369,6 +767,7 @@ def measure_from_sensitivity(
         guide_names=names,
         dropped_guides={} if dropped_guides is None else dropped_guides,
         guide_efficiencies={} if guide_efficiencies is None else guide_efficiencies,
+        guide_targets={} if guide_targets is None else guide_targets,
         method=reg,
         selected=selected,
         path=path,
@@ -398,6 +797,7 @@ def measure_operator(
     batch_key: str | None = None,
     min_cells_per_guide: int = 10,
     min_knockdown_efficiency: float = 0.05,
+    min_control_detection_rate: float = 0.05,
     loading_tol: float = 1e-8,
     reg: str = "tsvd",
     reg_param: str | float | int = "path",
@@ -405,7 +805,9 @@ def measure_operator(
     bootstrap: int = 0,
     bootstrap_seed: int | None = 0,
     state_label: str | None = None,
-    efficiency_estimator: str = "detection_rate",
+    efficiency_estimator: str = "auto",
+    calibration_adata: Any | None = None,
+    aggregate_replicate_guides: bool = True,
 ) -> MeasuredOperator:
     """Estimate a measured action and mandatory report from pooled Perturb-seq data.
 
@@ -419,13 +821,17 @@ def measure_operator(
     hazard when guides are collinear (paralogs, complex subunits, shared
     pathway members). Publications should record any deviation from this default.
 
-    ``efficiency_estimator`` defaults to ``"detection_rate"``, which uses the
-    drop in target-transcript detection rate between control and perturbed
-    cells. It is robust to scRNA-seq dropout at low-baseline targets — the
-    ``"mean_ratio"`` alternative degenerates to 1.0 whenever control mean is at
-    the dropout floor. On the K562 aggregate the switch reduces the artifact
-    spike at efficiency ≈ 1.0 from 35/72 guides to zero and improves the
-    linearity check by ~12×. See ``examples/05_linearity_diagnostics.ipynb``.
+    ``efficiency_estimator`` defaults to ``"auto"`` and estimates κ from
+    count-like expression. A signed normalized/residual response matrix cannot
+    provide a quantitative κ. For such data, pass an exactly cell-aligned raw
+    or count-like ``calibration_adata``; otherwise this inverse-model function
+    refuses to return an operator. Use :func:`build_target_response_atlas` for
+    a descriptive response result when only normalized/residual data exist.
+
+    ``aggregate_replicate_guides=True`` (default) robustly collapses guides
+    assigned to the same target using coordinatewise median responses and
+    inputs before inversion. This prevents several collinear guides for one
+    target from receiving disproportionate leverage in the operator fit.
     """
     responses, dropped = build_guide_responses(
         adata,
@@ -437,9 +843,31 @@ def measure_operator(
         batch_key=batch_key,
         min_cells_per_guide=min_cells_per_guide,
         min_knockdown_efficiency=min_knockdown_efficiency,
+        min_control_detection_rate=min_control_detection_rate,
         loading_tol=loading_tol,
         efficiency_estimator=efficiency_estimator,
+        calibration_adata=calibration_adata,
     )
+    if any(not record.calibrated for record in responses):
+        raise AnchorOpError(
+            "Uncalibrated response proxies cannot be inverted into a biological operator. "
+            "Provide paired raw/count calibration data or use build_target_response_atlas."
+        )
+    calibration_probe = adata if calibration_adata is None else calibration_adata
+    X_probe, _, _ = expression_and_metadata(calibration_probe)
+    resolved_estimator = _resolve_estimator(efficiency_estimator, X_probe)
+    if efficiency_estimator == "auto":
+        estimator_note = (
+            f"Knockdown efficiency was estimated per target via '{resolved_estimator}' "
+            f"(auto-routed from data format)."
+        )
+    else:
+        estimator_note = (
+            f"Knockdown efficiency was estimated per target via '{resolved_estimator}'."
+        )
+    original_guide_targets = {record.guide: record.target for record in responses}
+    if aggregate_replicate_guides:
+        responses = _aggregate_replicate_guides(responses)
     guide_names = tuple(record.guide for record in responses)
     S = np.column_stack([record.response for record in responses])
     U = np.column_stack([record.input_vector for record in responses])
@@ -449,6 +877,7 @@ def measure_operator(
         U,
         guide_names=guide_names,
         guide_efficiencies=efficiencies,
+        guide_targets=original_guide_targets,
         dropped_guides=dropped,
         reg=reg,
         reg_param=reg_param,
@@ -458,7 +887,13 @@ def measure_operator(
         state_label=state_label,
         notes=(
             "Guide-level S and U were estimated from matched perturbation and control means.",
-            f"Knockdown efficiency was estimated per target via '{efficiency_estimator}'.",
+            "Replicate guides were robustly aggregated by target before inversion."
+            if aggregate_replicate_guides
+            else "Guide-level inputs were retained without target aggregation.",
+            "κ calibration used a paired raw/count-like assay."
+            if calibration_adata is not None
+            else "κ calibration used the same count-like assay as response geometry.",
+            estimator_note,
             f"rank_tol={rank_tol:.2e} was used to decide which singular directions of S are identified.",
         ),
     )
@@ -593,10 +1028,13 @@ def linearity_check(
                 excess = float(difference - null_median)
                 z = float((difference - arr.mean()) / max(arr.std(), 1e-12))
 
-    if n_null > 0 and excess is not None:
-        passed = bool(overlap_rank > 0 and excess <= threshold)
-    else:
-        passed = bool(overlap_rank > 0 and difference <= threshold)
+    # `passed` always uses the preregistered raw-diff criterion. When null
+    # correction is requested (n_null > 0), the null_median / null_std /
+    # z_score / excess_above_null fields are informative diagnostics for
+    # interpreting the failure, NOT a substitute pass/fail criterion — the
+    # 0.25 threshold in PREREGISTRATION.md is locked to the raw statistic and
+    # does not transfer to a different quantity. See MANUSCRIPT.md §3.5.
+    passed = bool(overlap_rank > 0 and difference <= threshold)
 
     weak_action = (
         weak_measurement.identified_action
@@ -624,4 +1062,128 @@ def linearity_check(
         excess_above_null=excess,
         z_score=z,
         n_null=n_null,
+    )
+
+
+def held_out_prediction_check(
+    measured: MeasuredOperator,
+    *,
+    n_folds: int = 5,
+    seed: int | None = 0,
+    n_permutation_null: int = 0,
+    null_seed: int | None = 100,
+) -> HeldOutPredictionResult:
+    """Out-of-sample linearity diagnostic: fit ``A`` on train guides, evaluate residual on held-out.
+
+    From the identity ``J·S_g = -U_g`` (which holds for every guide g under
+    the additive-input linear settled-state model), fit
+    ``A = J·P_X = -U_train · S_train⁺`` on 4/5 of the guides and evaluate the
+    pooled residual ``ρ = ||A·S_test + U_test||_F / ||U_test||_F`` on the
+    held-out fifth. Under perfect linearity + noise-free measurement,
+    ``ρ → 0``; under a naive zero-predictor, ``ρ = 1``.
+
+    Unlike :func:`linearity_check`'s median-split diagnostic, this metric is
+    **algebraically invariant to global rescaling of** ``U``. Under
+    per-column κ rescaling it is near-invariant only in the zero-predictor
+    regime; outside that regime it is not invariant. Both diagnostics are
+    noise-limited at published Perturb-seq scale (d≈30, n≈200, per-guide σ≈0.27)
+    — interpret observed values against a matched-scale synthetic linear
+    positive control per MANUSCRIPT.md §3.5–§3.6 and Fig. S10. The two
+    diagnostics are complementary: bin-split rel_diff surfaces gross model
+    disagreement in projected coordinates; held-out ρ tests whether the
+    fitted operator generalizes beyond the training guides.
+
+    ``n_permutation_null > 0`` triggers a shuffled-U↔S null distribution
+    (each permutation shuffles the U column labels, refits, and reports ρ).
+    The z-score against this null quantifies how much better the fit does
+    than a random U↔S correspondence on the same S and U matrices.
+    """
+    report = measured.report
+    if report is None:
+        raise AnchorOpError("A report is required for the held-out prediction check.")
+    S = measured.S
+    U = measured.U
+    d, m = S.shape
+    if n_folds < 2:
+        raise AnchorOpError("n_folds must be at least 2.")
+    if m < n_folds:
+        raise AnchorOpError(
+            f"n_folds ({n_folds}) exceeds guide count ({m}); reduce n_folds."
+        )
+    rank_tol = report.rank_tol
+    method = report.regularization_method
+
+    rng = stable_rng(seed)
+    fold_ids = rng.integers(0, n_folds, size=m)
+
+    residual_sq_sum = 0.0
+    target_sq_sum = 0.0
+    per_fold: list[float] = []
+    n_folds_used = 0
+    for k in range(n_folds):
+        train = fold_ids != k
+        test = fold_ids == k
+        if int(train.sum()) < d or int(test.sum()) == 0:
+            continue
+        S_pinv, _selected, _path, _proj = regularized_pseudoinverse(
+            S[:, train], method=method, parameter="path", rank_tol=rank_tol
+        )
+        A = -U[:, train] @ S_pinv
+        pred = A @ S[:, test]
+        residual = pred + U[:, test]
+        residual_norm = float(np.linalg.norm(residual))
+        target_norm = float(np.linalg.norm(U[:, test]))
+        residual_sq_sum += residual_norm ** 2
+        target_sq_sum += target_norm ** 2
+        per_fold.append(residual_norm / max(target_norm, 1e-12))
+        n_folds_used += 1
+
+    if n_folds_used == 0:
+        raise AnchorOpError(
+            "No fold satisfied n_train >= d and n_test > 0; increase guide count or decrease d."
+        )
+    rho_pooled = float(np.sqrt(residual_sq_sum) / max(np.sqrt(target_sq_sum), 1e-12))
+
+    null_median = null_std = z = None
+    if n_permutation_null > 0:
+        null_rng = stable_rng(null_seed)
+        null_vals: list[float] = []
+        for _ in range(n_permutation_null):
+            perm = null_rng.permutation(m)
+            U_perm = U[:, perm]
+            fold_ids_p = null_rng.integers(0, n_folds, size=m)
+            r_sq = 0.0
+            t_sq = 0.0
+            any_fold = False
+            for k in range(n_folds):
+                train_p = fold_ids_p != k
+                test_p = fold_ids_p == k
+                if int(train_p.sum()) < d or int(test_p.sum()) == 0:
+                    continue
+                S_pinv, *_ = regularized_pseudoinverse(
+                    S[:, train_p], method=method, parameter="path", rank_tol=rank_tol
+                )
+                A_p = -U_perm[:, train_p] @ S_pinv
+                pred_p = A_p @ S[:, test_p]
+                res_p = pred_p + U_perm[:, test_p]
+                r_sq += float(np.linalg.norm(res_p)) ** 2
+                t_sq += float(np.linalg.norm(U_perm[:, test_p])) ** 2
+                any_fold = True
+            if any_fold and t_sq > 0:
+                null_vals.append(float(np.sqrt(r_sq) / np.sqrt(t_sq)))
+        if null_vals:
+            arr = np.asarray(null_vals, dtype=float)
+            null_median = float(np.median(arr))
+            null_std = float(arr.std())
+            z = float((rho_pooled - arr.mean()) / max(arr.std(), 1e-12))
+
+    return HeldOutPredictionResult(
+        rho_pooled=rho_pooled,
+        rho_per_fold=tuple(per_fold),
+        n_folds_used=n_folds_used,
+        n_folds_requested=n_folds,
+        null_median=null_median,
+        null_std=null_std,
+        z_score=z,
+        n_permutation_null=n_permutation_null,
     )

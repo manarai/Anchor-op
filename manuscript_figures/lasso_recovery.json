@@ -1,0 +1,78 @@
+{
+  "K562_essential": [
+    {
+      "sigma": 0.005,
+      "lam": 0.001,
+      "cosine_mean": 0.782265777303666,
+      "cosine_std": 0.06339615519467777,
+      "frob_rel_err_mean": 0.7684626071371384,
+      "support_precision_mean": 0.11143694705091972,
+      "support_recall_mean": 0.8961092681624833
+    },
+    {
+      "sigma": 0.025,
+      "lam": 0.006579332246575682,
+      "cosine_mean": 0.3792818283841757,
+      "cosine_std": 0.04365234769337453,
+      "frob_rel_err_mean": 0.9874930968561528,
+      "support_precision_mean": 0.1496840601200384,
+      "support_recall_mean": 0.5868643782488033
+    },
+    {
+      "sigma": 0.1,
+      "lam": 0.012328467394420659,
+      "cosine_mean": 0.12262320615526362,
+      "cosine_std": 0.03276274662824263,
+      "frob_rel_err_mean": 0.9988799799928088,
+      "support_precision_mean": 0.06348042143247933,
+      "support_recall_mean": 0.46025487578741053
+    },
+    {
+      "sigma": 0.266,
+      "lam": 0.04328761281083057,
+      "cosine_mean": 0.06624494461122812,
+      "cosine_std": 0.031157131267034077,
+      "frob_rel_err_mean": 0.9998193616344706,
+      "support_precision_mean": 0.06753465016927827,
+      "support_recall_mean": 0.2061860415660567
+    }
+  ],
+  "RPE1_essential": [
+    {
+      "sigma": 0.005,
+      "lam": 0.001,
+      "cosine_mean": 0.7605810506499586,
+      "cosine_std": 0.0603446577057414,
+      "frob_rel_err_mean": 0.8151770127209558,
+      "support_precision_mean": 0.1413390113843005,
+      "support_recall_mean": 0.8232187157614284
+    },
+    {
+      "sigma": 0.025,
+      "lam": 0.003511191734215131,
+      "cosine_mean": 0.3171324453692303,
+      "cosine_std": 0.040446148764444384,
+      "frob_rel_err_mean": 0.9897667667591799,
+      "support_precision_mean": 0.09393269473644227,
+      "support_recall_mean": 0.5934677452850228
+    },
+    {
+      "sigma": 0.1,
+      "lam": 0.006579332246575682,
+      "cosine_mean": 0.09027681677963943,
+      "cosine_std": 0.026213231978970138,
+      "frob_rel_err_mean": 0.9990868277532402,
+      "support_precision_mean": 0.05733794678280727,
+      "support_recall_mean": 0.5325212827876831
+    },
+    {
+      "sigma": 0.266,
+      "lam": 0.012328467394420659,
+      "cosine_mean": 0.0449296556896297,
+      "cosine_std": 0.024604053890060106,
+      "frob_rel_err_mean": 0.9998083134740084,
+      "support_precision_mean": 0.054529660291748085,
+      "support_recall_mean": 0.3938116407820578
+    }
+  ]
+}

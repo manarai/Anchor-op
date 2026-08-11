@@ -1,6 +1,6 @@
 # anchor-op — Mathematical derivations
 
-This document derives every non-trivial mathematical claim `anchor-op` relies on from first principles. Every non-trivial equation has been numerically validated against the code; the validation script lives in the repository history and every claim below reproduces from `pytest -q` (33 tests).
+This document derives every non-trivial mathematical claim `anchor-op` relies on from first principles. Every non-trivial equation has been numerically validated against the code; the validation script lives in the repository history and every claim below reproduces from `pytest -q` (50 tests).
 
 **Complement to other docs:**
 - [`SPEC.md`](SPEC.md) — the *contract* (what the tool guarantees to users).
@@ -437,3 +437,28 @@ Three math-shaped open problems the current release does not solve:
 3. **State-dependent Jacobians.** The tool assumes a single `J` per measurement (per cell state). Cells with diverse baseline expressions have different local `J`'s. A per-cell operator field would require per-cell response estimates (currently aggregated per guide) and a smoothness prior over the cell manifold.
 
 All three are legitimate research directions rather than fixable oversights. Each would extend the tool's scope substantially; each would also require its own identifiability analysis.
+
+---
+
+## Appendix: Why `poisson_mle` is biased downward under independent zero-inflation
+
+Let `X ~ Poisson(λ)` be the noise-free count model and `Y = X · B` where `B ~ Bernoulli(1 − π)` is an independent dropout indicator: with probability `π`, the count is masked to zero regardless of the underlying `λ`. The detection rate is `Pr[Y > 0] = (1 − π) · (1 − e^{−λ})`.
+
+The `poisson_mle` estimator uses `λ̂ = −log(1 − Pr[Y > 0])`, i.e., it treats the observed detection rate as if it came from a pure Poisson without dropout. Substituting the true detection rate:
+
+```
+λ̂ = −log(1 − (1 − π)(1 − e^{−λ})) = −log(π + (1 − π) e^{−λ}).
+```
+
+Taylor-expanding in `π` around `π = 0` (small dropout):
+
+```
+λ̂ = −log(e^{−λ} + π (1 − e^{−λ})) = λ − log(1 + π (e^λ − 1)) ≈ λ − π (e^λ − 1).
+```
+
+For any `λ > 0`, the correction term `π (e^λ − 1)` is strictly positive, so **`λ̂ < λ` under zero-inflation**: `poisson_mle` systematically underestimates `λ` when there is a nonzero dropout probability independent of `λ`. Applied to `κ̂ = 1 − λ̂_pert / λ̂_ctrl`:
+
+- If dropout `π` is the same in perturbed and control conditions, both `λ̂` values are biased in the same direction. To first order in `π`, `λ̂_ctrl ≈ λ_ctrl − π(e^{λ_ctrl} − 1)` and `λ̂_pert ≈ λ_pert − π(e^{λ_pert} − 1)`. Since `λ_pert = (1 − κ) λ_ctrl < λ_ctrl`, the correction on `λ̂_ctrl` is larger in absolute terms, so `λ̂_pert / λ̂_ctrl > λ_pert / λ_ctrl = 1 − κ`, and therefore `κ̂ = 1 − λ̂_pert/λ̂_ctrl < κ`.
+- Contrast with `mean_ratio`: `E[Y_ctrl] = (1 − π) λ_ctrl`, `E[Y_pert] = (1 − π)(1 − κ) λ_ctrl`, so the ratio `E[Y_pert] / E[Y_ctrl] = 1 − κ` regardless of `π`. The dropout fraction cancels in the moment ratio, and `mean_ratio` is unbiased.
+
+This is the analytic underpinning for §2.3's recommendation of `mean_ratio` over `poisson_mle` on count data with dropout, and for the `poisson_mle` docstring in `src/anchorop/measure.py` noting that the estimator is "conservative under independent zero-inflation" (attributes some structural zeros to Poisson, understates `κ`).

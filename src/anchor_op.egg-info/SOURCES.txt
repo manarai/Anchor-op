@@ -17,6 +17,7 @@ src/anchorop/io.py
 src/anchorop/measure.py
 src/anchorop/plotting.py
 src/anchorop/programs.py
+src/anchorop/replogle.py
 src/anchorop/types.py
 tests/test_acceptance_core.py
 tests/test_api_layer.py
