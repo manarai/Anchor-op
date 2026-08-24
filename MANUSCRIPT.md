@@ -388,15 +388,15 @@ No competing interests
 
 [2] Jost M, Santos DA, Saunders RA, et al. (2020) Titrating gene expression using libraries of systematically attenuated CRISPR guide RNAs. *Nature Biotechnology* 38:355–364.
 
-[3] Kamimoto K, Stringa B, Hoffmann CM, et al. (2023) Dissecting cell identity via network inference and in silico gene perturbation. *Nature* 614:742–751. *[verify author list and page range before submission]*
+[3] Kamimoto K, Stringa B, Hoffmann CM, et al. (2023) Dissecting cell identity via network inference and in silico gene perturbation. *Nature* 614:742–751.
 
 [4] Qiu X, Zhang Y, Martin-Rufino JD, et al. (2022) Mapping transcriptomic vector fields of single cells. *Cell* 185(4):690–711.e45.
 
 [5] Redd D, Green S, Terooatea TW (2026) scJDO: Inferring time-varying dynamical operators from single-cell transcriptomic data. *bioRxiv* doi:10.64898/2026.08.21.745996.
 
-[6] Gilbert LA, Larson MH, Morsut L, et al. CRISPR-mediated modular RNA-guided regulation of transcription in eukaryotes. Cell.Cell. 2013;154(2):442–451. doi:10.1016/j.cell.2013.06.044
+[6] Gilbert LA, Larson MH, Morsut L, et al. CRISPR-mediated modular RNA-guided regulation of transcription in eukaryotes. Cell. 2013;154(2):442–451. doi:10.1016/j.cell.2013.06.044
 
-[7] Tibshirani R. Regression shrinkage and selection via the lasso. Journal of the Royal Statistical Society: Series B (Methodological).Journal of the Royal Statistical Society: Series B (Methodological). 1996;58(1):267–288. doi:10.1111/j.2517-6161.1996.tb02080.x.
+[7] Tibshirani R. Regression shrinkage and selection via the lasso. Journal of the Royal Statistical Society: Series B (Methodological). 1996;58(1):267–288. doi:10.1111/j.2517-6161.1996.tb02080.x.
 
 [8] Pedregosa F, Varoquaux G, Gramfort A, et al. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research.Journal of Machine Learning Research. 2011;12:2825–2830.
 
