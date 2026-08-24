@@ -10,7 +10,7 @@ Under a matched-scale positive control at published Perturb-seq per-guide cell d
 
 ## 1. Introduction
 
-Pooled Perturb-seq combines pooled CRISPR perturbations with single-cell RNA sequencing to measure intervention–response mappings at scale [1–3]. Under a linear settled-state approximation of regulatory dynamics `dz/dt = h(z)`, knocking down gene *g* at efficiency `κ` produces a projected steady-state shift `Δz_g = −J⁻¹u_g`, where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking over guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the **operator action on the identified response subspace**, `J·P_X = −U·S⁺` with `X = range(S)`. This is a direct route to the object that continuous-inference methods — Related frameworks infer regulatory or dynamical structure from observational single-cell data, including GRN-based in silico perturbation in CellOracle [3], RNA-velocity-derived vector-field reconstruction in dynamo [4], and time-resolved dynamical-operator inference in scJDO [5], with the apparent advantage of being anchored to actual interventions.
+Pooled Perturb-seq combines pooled CRISPR perturbations with single-cell RNA sequencing to measure intervention–response mappings at scale. Under a linear settled-state approximation of regulatory dynamics `dz/dt = h(z)`, knocking down gene *g* at efficiency `κ` produces a projected steady-state shift `Δz_g = −J⁻¹u_g`, where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking over guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the **operator action on the identified response subspace**, `J·P_X = −U·S⁺` with `X = range(S)`. This provides an intervention-anchored route to quantities related to those inferred from observational single-cell data by GRN-based in silico  perturbation frameworks such as CellOracle [3], RNA-velocity-derived vector-field methods such as dynamo [4], and time-resolved dynamical-operator inference methods such as scJDO [5].
 
 **Terminology.** Throughout, `A` denotes the *fitted additive-input projected operator* — the quantity `−U·S⁺` returned by the pipeline. We reserve "Jacobian" for the model-defined target `J` of the additive-input steady-state model, and we do not treat `A` as an estimate of a biological Jacobian without stating the conditioning explicitly. The distinction matters because CRISPRi is closer to a clamp on target transcript than to an additive forcing term (§3.3), so even exact recovery of `A` would estimate a model-defined object rather than a biological one.
 
@@ -36,7 +36,7 @@ We do **not** establish that no local operator is estimable from Perturb-seq gen
 
 ### 2.1 The pipeline reaches full linear-algebraic rank on both flagship screens
 
-Applied to the Replogle 2022 K562 essential-gene h5ad (310,385 cells; 2,058 unique targets; 10,691 non-targeting control cells), anchor-op retains 188 of 200 top-target guides, reaches full effective rank at `d = 30` under the preregistered `rank_tol = 1×10⁻²`, and reports condition number 65.0 (Fig. 1a). Of the 12 dropped guides, 10 are dropped because the target gene is absent from the expression matrix after HVG selection and 2 for insufficient target-transcript knockdown — no drops are due to identification failure (Fig. 1c). RPE1 (247,914 cells; 2,391 targets; 11,485 NT controls) retains 153 of 200 guides at full rank `d = 30`, condition number 65.27 (Fig. 1b); of the 47 drops, 41 are target-gene-absence and 6 are insufficient knockdown (Fig. 1d). RPE1's lower retention (77% vs 94%) reflects the smaller intersection of its target list with its HVG-selected expression basis.
+Applied to the Replogle et al. genome-scale Perturb-seq K562 essential-gene dataset  h5ad (310,385 cells; 2,058 unique targets; 10,691 non-targeting control cells), anchor-op retains 188 of 200 top-target guides, reaches full effective rank at `d = 30` under the preregistered `rank_tol = 1×10⁻²`, and reports condition number 65.0 (Fig. 1a). Of the 12 dropped guides, 10 are dropped because the target gene is absent from the expression matrix after HVG selection and 2 for insufficient target-transcript knockdown — no drops are due to identification failure (Fig. 1c). RPE1 (247,914 cells; 2,391 targets; 11,485 NT controls) retains 153 of 200 guides at full rank `d = 30`, condition number 65.27 (Fig. 1b); of the 47 drops, 41 are target-gene-absence and 6 are insufficient knockdown (Fig. 1d). RPE1's lower retention (77% vs 94%) reflects the smaller intersection of its target list with its HVG-selected expression basis.
 
 Full rank here is a statement about `range(S)`: thirty singular directions sit above the tolerance. It is necessary for operator recovery. §2.2 shows it is far from sufficient.
 
@@ -97,7 +97,7 @@ For cos_5 and cos_1 the picture is different. On a per-replicate basis, neither 
 
 ### 2.3 Sparsity-aware fitting does not rescue it, under oracle penalty selection
 
-TSVD does not exploit sparsity, so its failure on a 2%-sparse ground truth (18 nonzeros in a 30×30 matrix) does not alone show sparse operators are unrecoverable. We tested a row-wise LASSO fit, implemented with sklearn.linear_model.Lasso, with λ swept over three orders of magnitude.
+TSVD does not exploit sparsity, so its failure on a 2%-sparse ground truth (18 nonzeros in a 30×30 matrix) does not alone show sparse operators are unrecoverable. We tested a row-wise LASSO fit, implemented with sklearn.linear_model.Lasso, with λ swept over three orders of magnitude [7].
 
 **This is an oracle analysis and an optimistic upper bound.** We report the best-λ result, where "best" is selected by agreement with the ground truth. A real user has no such selection criterion; cross-validated or information-criterion λ selection would perform no better and plausibly worse.
 
@@ -213,7 +213,7 @@ That role is not available at the scale tested here. On every dataset we examine
 
 ### 3.3 What the model mismatch does and does not explain
 
-Because CRISPR interference represses transcription at a targeted locus, it is conceptually closer to a target-specific transcript clamp than to an abstract additive forcing term. An additive→clamp interpolation on synthetic ground truth (Supplementary Fig. S7) shows fit error rising from 0.02 to 0.78 across the sweep, with leading eigenvalues shifting toward zero. In program coordinates the intervention model is exactly under-identified from projected observations (`MATH.md` §5) — a real obstruction, correctable only with a structural prior or a return to gene-space inference. This is the primary reason we avoid calling `A` a biological Jacobian even where recovery succeeds.
+Because CRISPR interference represses transcription at a targeted locus, it is conceptually closer to a target-specific transcript clamp than to an abstract additive forcing term [6]. An additive→clamp interpolation on synthetic ground truth (Supplementary Fig. S7) shows fit error rising from 0.02 to 0.78 across the sweep, with leading eigenvalues shifting toward zero. In program coordinates the intervention model is exactly under-identified from projected observations (`MATH.md` §5) — a real obstruction, correctable only with a structural prior or a return to gene-space inference. This is the primary reason we avoid calling `A` a biological Jacobian even where recovery succeeds [10].
 
 This bias is **orthogonal to the recovery problem**. Both endpoints of the additive↔clamp axis are linear input↔response maps that the fit adapts to, and at d = 6 with 60 guides — where the fit has content — both pass the linearity diagnostics (`rel_diff` ≤ 0.10, ρ ≤ 0.13). Switching to the intervention model would change the fitted operator's magnitude and eigenvalue positions substantially but would not close the recovery gap. Under the noise anchor used here, the noise budget binds first, before any model-class question.
 
@@ -264,7 +264,7 @@ J·P_X = −U·S⁺,    X = range(S)
 
 ### 4.2 Regularization and identifiability
 
-Perturb-seq data: Replogle et al. genome-scale Perturb-seq data were obtained from the Weissman laboratory resource and Figshare Plus deposit 20029387. Jost et al. CRISPRi titration data were obtained from GEO accession GSE132080. A singular direction counts as identified only if `σ_i > rank_tol · σ_max(S)`. The preregistered default `rank_tol = 1×10⁻²` prevents the machine-precision default from accepting below-noise directions as full rank on collinear guide libraries. A sweep across `rank_tol ∈ {10⁻³, 5×10⁻³, 10⁻², 2×10⁻², 5×10⁻²}` (Supplementary Fig. S1) shows 10⁻² is the elbow: at or below it both essential-gene measurements reach 30/30; above it rank drops rapidly (K562 30→28→17).
+`S⁺` is computed by truncated SVD or Tikhonov regularization, standard approaches for rank-deficient or ill-posed linear inverse problems, with the full path retained. A singular direction counts as identified only if σ_i > rank_tol · σ_max(S. The preregistered default `rank_tol = 1×10⁻²` prevents the machine-precision default from accepting below-noise directions as full rank on collinear guide libraries. A sweep across `rank_tol ∈ {10⁻³, 5×10⁻³, 10⁻², 2×10⁻², 5×10⁻²}` (Supplementary Fig. S1) shows 10⁻² is the elbow: at or below it both essential-gene measurements reach 30/30; above it rank drops rapidly (K562 30→28→17).
 
 ### 4.3 Efficiency estimation
 
@@ -321,7 +321,7 @@ The empirical null is used to anchor the paper's central claim. The analytic nul
 
 ### 4.8 Software
 
-`anchorop` requires only NumPy and pandas at core; scanpy, AnnData, scikit-learn, and matplotlib are optional. `ao.analyses` provides `measurement_report`, `benchmark_report`, and `archetype_report` workflows producing standard figures and JSON/CSV summaries. `ao.load_replogle_h5ad` handles schema variation across the Replogle 2022 h5ads. 56 tests including acceptance-level synthetic recovery, identifiability enforcement, and null-calibration regression.
+`anchorop` requires only NumPy and pandas at core; scanpy, AnnData, scikit-learn [8], and matplotlib are optional. `ao.analyses` provides `measurement_report`, `benchmark_report`, and `archetype_report` workflows producing standard figures and JSON/CSV summaries. `ao.load_replogle_h5ad` handles schema variation across the Replogle 2022 h5ads. 56 tests including acceptance-level synthetic recovery, identifiability enforcement, and null-calibration regression.
 
 ---
 
@@ -394,7 +394,13 @@ No competing interests
 
 [5] Redd D, Green S, Terooatea TW (2026) scJDO: Inferring time-varying dynamical operators from single-cell transcriptomic data. *bioRxiv* doi:10.64898/2026.08.21.745996.
 
-[6] Kotliar D, Veres A, Nagy MA, et al. (2019) Identifying gene expression programs of cell-type identity and cellular activity with single-cell RNA-Seq. *eLife* 8:e43803.
+[6] Gilbert LA, Larson MH, Morsut L, et al. CRISPR-mediated modular RNA-guided regulation of transcription in eukaryotes. Cell.Cell. 2013;154(2):442–451. doi:10.1016/j.cell.2013.06.044
 
-[7] Pearl J (2009) *Causality: Models, Reasoning, and Inference*, 2nd ed. Cambridge University Press. *[for the intervention-model framing in §3.3; consider also a Neyman–Rubin potential-outcomes reference]*
+[7] Tibshirani R. Regression shrinkage and selection via the lasso. Journal of the Royal Statistical Society: Series B (Methodological).Journal of the Royal Statistical Society: Series B (Methodological). 1996;58(1):267–288. doi:10.1111/j.2517-6161.1996.tb02080.x.
+
+[8] Pedregosa F, Varoquaux G, Gramfort A, et al. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research.Journal of Machine Learning Research. 2011;12:2825–2830.
+
+[9] Hansen PC. Rank-Deficient and Discrete Ill-Posed Problems: Numerical Aspects of Linear Inversion. Rank-Deficient and Discrete Ill-Posed Problems: Numerical Aspects of Linear Inversion. Philadelphia, PA: Society for Industrial and Applied Mathematics; 1998.
+
+[10] Pearl J. Causality: Models, Reasoning, and Inference.Causality: Models, Reasoning, and Inference. 2nd ed. Cambridge, UK: Cambridge University Press; 2009.
 
