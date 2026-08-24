@@ -10,7 +10,7 @@ Under a matched-scale positive control at published Perturb-seq per-guide cell d
 
 ## 1. Introduction
 
-Pooled Perturb-seq delivers an intervention → response mapping at genome scale [1]. Under a linear settled-state approximation of regulatory dynamics `dz/dt = h(z)`, knocking down gene *g* at efficiency `κ` produces a projected steady-state shift `Δz_g = −J⁻¹u_g`, where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking over guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the **operator action on the identified response subspace**, `J·P_X = −U·S⁺` with `X = range(S)`. This is a direct route to the object that continuous-inference methods — CellOracle [3], dynamo [4], scJDO [5] — estimate from expression dynamics alone, with the apparent advantage of being anchored to actual interventions.
+Pooled Perturb-seq delivers an intervention → response mapping at genome scale [1]. Under a linear settled-state approximation of regulatory dynamics `dz/dt = h(z)`, knocking down gene *g* at efficiency `κ` produces a projected steady-state shift `Δz_g = −J⁻¹u_g`, where `u_g` encodes the perturbation direction in a low-dimensional program space. Stacking over guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the **operator action on the identified response subspace**, `J·P_X = −U·S⁺` with `X = range(S)`. This is a direct route to the object that continuous-inference methods — Related frameworks infer regulatory or dynamical structure from observational single-cell data, including GRN-based in silico perturbation in CellOracle [3], RNA-velocity-derived vector-field reconstruction in dynamo [4], and time-resolved dynamical-operator inference in scJDO [5], with the apparent advantage of being anchored to actual interventions.
 
 **Terminology.** Throughout, `A` denotes the *fitted additive-input projected operator* — the quantity `−U·S⁺` returned by the pipeline. We reserve "Jacobian" for the model-defined target `J` of the additive-input steady-state model, and we do not treat `A` as an estimate of a biological Jacobian without stating the conditioning explicitly. The distinction matters because CRISPRi is closer to a clamp on target transcript than to an additive forcing term (§3.3), so even exact recovery of `A` would estimate a model-defined object rather than a biological one.
 
@@ -390,9 +390,9 @@ No competing interests
 
 [3] Kamimoto K, Stringa B, Hoffmann CM, et al. (2023) Dissecting cell identity via network inference and in silico gene perturbation. *Nature* 614:742–751. *[verify author list and page range before submission]*
 
-[4] Qiu X, Zhang Y, Martin-Rufino JD, et al. (2022) Mapping transcriptomic vector fields of single cells. *Cell* 185(4):690–711.e45. *[verify before submission]*
+[4] Qiu X, Zhang Y, Martin-Rufino JD, et al. (2022) Mapping transcriptomic vector fields of single cells. *Cell* 185(4):690–711.e45.
 
-[5] Redd D, Green S, Terooatea TW (2026) scJDO: Inferring time-varying dynamical operators from single-cell transcriptomic data. *[journal TBD]*.
+[5] Redd D, Green S, Terooatea TW (2026) scJDO: Inferring time-varying dynamical operators from single-cell transcriptomic data. *bioRxiv* doi:10.64898/2026.08.21.745996.
 
 [6] Kotliar D, Veres A, Nagy MA, et al. (2019) Identifying gene expression programs of cell-type identity and cellular activity with single-cell RNA-Seq. *eLife* 8:e43803.
 
