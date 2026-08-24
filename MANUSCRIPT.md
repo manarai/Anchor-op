@@ -1,7 +1,5 @@
 # Matched-scale controls reveal limited recovery of perturbation-response operators from current Perturb-seq
 
-> **Draft — revision 3.** Main text ~6,300 words; abstract ~370 words. All numbers reproduce from the executed notebooks and 56-test suite. Revision 3 folds in four analyses previously flagged pending: a pipeline-matched empirical null (Fig. S16), a noise-model sensitivity check with residual resampling (Fig. S17), a stability-shift sweep (Fig. S18), and per-dataset σ estimation (Fig. S19). The central-claim wording is sharpened accordingly.
-
 ---
 
 ## Abstract
@@ -371,11 +369,18 @@ Each supplementary figure lists (i) the reproduction script that generates the P
 
 ## Author contributions
 
-*[placeholder]*
+Dalton Kutzen: Methodology, Formal analysis, Investigation, Writing — original draft, Writing — review & editing.
+
+Sam Green: Validation, Visualization, Writing — review & editing.
+
+Tommy W. Terooatea: Conceptualization, Supervision, Project administration, Funding acquisition, Writing — review & editing.
+
+## Funding
+This work was supported by the College of Life Sciences at Brigham Young University.
 
 ## Competing interests
 
-*[placeholder]*
+No competing interests
 
 ## References
 
@@ -393,4 +398,3 @@ Each supplementary figure lists (i) the reproduction script that generates the P
 
 [7] Pearl J (2009) *Causality: Models, Reasoning, and Inference*, 2nd ed. Cambridge University Press. *[for the intervention-model framing in §3.3; consider also a Neyman–Rubin potential-outcomes reference]*
 
-*[Still required: a citation for scOpAtlas if retained anywhere in the text; a primary reference for the additive-input vs. intervention distinction in dynamical-systems identification, to support the `MATH.md` §5 under-identification claim rather than relying on the repository alone.]*
