@@ -20,7 +20,7 @@ The original proposal used `J = -U S⁺`. The implementation makes the crucial p
 J P_X = -U S⁺,     X = range(S).
 ```
 
-The package therefore distinguishes the **actuated input subspace** `range(U)` from the **identified response/domain subspace** `range(S)`. A zero extension outside `X` is not silently called a full cellular Jacobian. `MeasuredOperator.J` is available only when the effective response rank equals the full program dimension; otherwise the user works with `MeasuredOperator.identified_action` and projected comparisons. This prevents unsupported eigenvalue or hyperbolicity claims under incomplete excitation.
+The package therefore distinguishes the **actuated input subspace** `range(U)` from the **identified response/domain subspace** `range(S)`. A zero extension outside `X` is not silently called a full cellular Jacobian. `MeasuredOperator.J` is available only when the effective response rank equals the full program dimension; otherwise the user works with `MeasuredOperator.identified_action` (equivalently `.regularized_action` — the two attributes return the same array; the latter name is provided so downstream code can be explicit about the shrinkage-vs-projector distinction) and projected comparisons. This prevents unsupported eigenvalue or stability-sign claims under incomplete excitation. Under TSVD, `identified_action` equals `J·P_X = −U·S⁺` exactly and `report.is_hard_projector` is `True`. Under Tikhonov, the same hard projector is stored in `report.response_projector`, but the returned action is a shrinkage estimate `−U·S⁺_α` in which retained singular directions are further attenuated by filter factors `σᵢ²/(σᵢ²+α) < 1`; `report.is_hard_projector` is `False` in that regime and the returned matrix is not exactly `J·P_X`.
 
 | Returned object | Interpretation | Always available? |
 |---|---|---:|
@@ -43,7 +43,7 @@ python -m pip install -e '.[test]'     # editable install of anchor-op itself
 Verify the install:
 
 ```bash
-pytest -q                              # expected: 33 passed
+pytest -q                              # expected: 59 passed
 ```
 
 The `environment.yml` at the repo root pins Python 3.11 and all runtime dependencies (NumPy, pandas, AnnData, scikit-learn, scanpy, matplotlib, Jupyter, nbconvert, pytest). anchor-op itself is installed with `pip install -e` so source edits are picked up without an env rebuild.
@@ -82,10 +82,13 @@ basis = ao.fit_programs(
 # Each guide needs an explicit target-gene annotation; targets are never parsed
 # from an arbitrary guide identifier. The `efficiency_estimator` default is
 # `"auto"` — routes by data format: count-like data → `mean_ratio` (the
-# sample-moment MLE, unbiased under both Poisson and Poisson-with-dropout);
-# pre-scaled residual data (contains meaningful negatives, e.g. z-scored
-# Replogle h5ads) → `detection_rate` (a signed distributional-shift statistic,
-# analytically `0.5 − Φ(Δ/σ)`, valid on that data class).
+# consistent / asymptotically unbiased sample-moment estimator under Poisson
+# and independent zero-inflation observation); pre-scaled residual data
+# (contains meaningful negatives, e.g. z-scored Replogle h5ads) →
+# `detection_rate` (a signed distributional-shift proxy score, analytically
+# `0.5 − Φ(Δ/σ)`; valid on that data class but NOT fractional target-transcript
+# knockdown — cross-dataset comparisons that treat this against count-based κ
+# on a common scale require calibration).
 # `min_control_detection_rate` (default 0.05) drops info-limited targets on
 # count data where any estimator would be dominated by discretization noise;
 # on pre-scaled data the filter is effectively inert.
@@ -119,9 +122,9 @@ print(ao.comparison_table(results))
 # Linearity diagnostic — compares weak vs strong efficiency bin operators.
 # IMPORTANT: at published Perturb-seq scale (d≈30, n≈200, per-guide noise
 # σ≈0.27) this diagnostic is noise-limited and the preregistered 0.25
-# threshold is unreachable for any dataset. See MANUSCRIPT.md §3.5–§3.6 and
+# threshold is unreachable for any dataset. See MANUSCRIPT.md §2.5–§2.6 and
 # `reproduction/10_figS10_realscale_positive_control.py` for the
-# matched-scale positive-control methodology required to interpret observed
+# matched-geometry positive-control methodology required to interpret observed
 # rel_diff / ρ values against a linear-noise baseline before drawing any
 # linearity conclusion.
 linearity = ao.linearity_check(measurement, threshold=0.25, n_null=200, null_seed=42)
@@ -131,7 +134,7 @@ print({
     "rel_diff": linearity.relative_difference,
     "null_median": linearity.null_median,
     "held_out_rho": rho.rho_pooled,
-    # Interpret these against a matched-scale linear positive control
+    # Interpret these against a matched-geometry linear positive control
     # (see tutorial/04_linearity_diagnostics_power_analysis.ipynb).
 })
 
@@ -161,11 +164,11 @@ Every function listed here is importable directly from the top-level `anchorop` 
 | `measure_operator(adata, basis, *, guide_key, control_label, target_key=..., batch_key=..., rank_tol=1e-2, efficiency_estimator="auto", min_control_detection_rate=0.05, bootstrap=0, ...)` | Full pipeline: build guide responses, invert, return a `MeasuredOperator` with its inseparable `AnchorReport`. |
 | `measure_from_sensitivity(S, U, *, guide_names=..., guide_efficiencies=..., reg="tsvd", reg_param="path", rank_tol=None, bootstrap=0, ...)` | Low-level inversion from pre-computed `S` and `U`. Same return contract; no unchecked inverse path exists. |
 | `build_guide_responses(adata, basis, *, guide_key, control_label, efficiency_estimator="auto", min_control_detection_rate=0.05, ...)` | Guide-level Δz + input-encoding computation, without the inversion step. |
-| `linearity_check(measurement, *, threshold=0.25, n_null=0, null_seed=0)` | Weak/strong-bin diagnostic on the common identified subspace. Optional `n_null > 0` draws a random-split null distribution. At published Perturb-seq scale this diagnostic is noise-limited — interpret against a matched-scale positive control per MANUSCRIPT.md §3.5–§3.6, not against the raw 0.25 threshold. |
-| `held_out_prediction_check(measurement, *, n_folds=5, seed=0, n_permutation_null=0)` | Out-of-sample linearity diagnostic: fit `A = J·P_X` on train guides, evaluate `ρ = ‖A·S_test + U_test‖_F / ‖U_test‖_F` on held-out. Invariant to global U rescaling. Also noise-limited at published Perturb-seq scale — see MANUSCRIPT.md §3.5–§3.6 and Fig. S10 for the matched-scale positive-control methodology. |
-| `estimate_knockdown_efficiency(expression, *, target_index, perturbed_mask, control_mask, ...)` | Current default: `1 − mean_pert / mean_ctrl`. Unbiased under both Poisson and Poisson-with-dropout; at very low baseline it becomes bimodal (0 or 1) — pair with `min_control_detection_rate` to filter those targets. |
-| `estimate_knockdown_efficiency_poisson_mle(expression, *, target_index, perturbed_mask, control_mask, ...)` | Poisson MLE: `1 − λ̂_pert/λ̂_ctrl` with `λ̂ = −log(1 − detection_rate)`. Equivalent to `mean_ratio` under pure Poisson; biased low under independent zero-inflation. |
-| `estimate_knockdown_efficiency_detection_rate(expression, *, target_index, perturbed_mask, control_mask, ...)` | Raw detection-shift `Pr[X_ctrl>0] − Pr[X_pert>0]`. NOT an unbiased estimator of `κ` — a bounded shift diagnostic that scales with baseline. Retained for backward compatibility; see `examples/06_estimator_simulation.ipynb`. |
+| `linearity_check(measurement, *, threshold=0.25, n_null=0, null_seed=0)` | Weak/strong-bin diagnostic on the common identified subspace. Optional `n_null > 0` draws a random-split null distribution. At published Perturb-seq scale this diagnostic is noise-limited — interpret against a matched-geometry positive control per MANUSCRIPT.md §2.5–§2.6, not against the raw 0.25 threshold. |
+| `held_out_prediction_check(measurement, *, n_folds=5, seed=0, n_permutation_null=0)` | Out-of-sample linearity diagnostic: fit `A = J·P_X` on train guides, evaluate `ρ = ‖A·S_test + U_test‖_F / ‖U_test‖_F` on held-out. Invariant to global U rescaling. Also noise-limited at published Perturb-seq scale — see MANUSCRIPT.md §2.5–§2.6 and Fig. S10 for the matched-geometry positive-control methodology. |
+| `estimate_knockdown_efficiency(expression, *, target_index, perturbed_mask, control_mask, ...)` | Current default: `1 − mean_pert / mean_ctrl`. Consistent / asymptotically unbiased sample-moment estimator under Poisson and independent-zero-inflation observation (a ratio of sample means is not finite-sample unbiased in general); at very low baseline it becomes bimodal (0 or 1) — pair with `min_control_detection_rate` to filter those targets. |
+| `estimate_knockdown_efficiency_poisson_mle(expression, *, target_index, perturbed_mask, control_mask, ...)` | Poisson MLE: `1 − λ̂_pert/λ̂_ctrl` with `λ̂ = −log(1 − detection_rate)`. Equivalent to `mean_ratio` under pure Poisson; conservative (biased low in `κ̂`) under independent zero-inflation. |
+| `estimate_knockdown_efficiency_detection_rate(expression, *, target_index, perturbed_mask, control_mask, ...)` | Raw detection-shift `Pr[X_ctrl>0] − Pr[X_pert>0]`. NOT a fractional-knockdown estimator on count data — a bounded shift diagnostic that scales with baseline; on pre-scaled residual data it recovers a signed distributional-shift score (a proxy, not fractional `κ`). Retained for backward compatibility; see `examples/06_estimator_simulation.ipynb`. |
 
 ### Regularization + identifiability — `ao.regularized_pseudoinverse`, `ao.regularization_path`
 
@@ -174,15 +177,15 @@ Every function listed here is importable directly from the top-level `anchorop` 
 | `regularized_pseudoinverse(sensitivity, *, method="tsvd", parameter="path", rank_tol=None)` | Return `S⁺`, selected path entry, full path, and the response projector `P_X`. |
 | `regularization_path(sensitivity, *, method, parameters=None, rank_tol=None)` | Full TSVD or Tikhonov path with per-entry rank, filter factors, and condition numbers. |
 
-### Comparison / benchmarking — `ao.compare`, `ao.comparison_table`, `ao.spectral_*`, `ao.hyperbolicity_sign`
+### Comparison / benchmarking — `ao.compare`, `ao.comparison_table`, `ao.spectral_*`, `ao.stability_sign`
 
 | Function | Purpose |
 |---|---|
 | `compare(measured, inferred_operators, *, nulls=("shuffled_edges", "random_init"), n_null=100, ...)` | Benchmark a dict of inferred `d × d` operators against the measured action on its identified subspace, with declared operator-level nulls. |
 | `comparison_table(results)` | Flatten `compare()`'s dict of `ComparisonResult` into a `pandas.DataFrame`. |
 | `spectral_wasserstein(A, B)` | Exact 2-Wasserstein distance between complex eigenvalue clouds. Unstable for non-normal `J`; use as supplementary. |
-| `spectral_abscissa_difference(A, B)` | `|max Re(λ(A)) − max Re(λ(B))|`. Preferred hyperbolicity metric — Lipschitz-stable on diagonalizable operators. |
-| `hyperbolicity_sign(operator, tolerance=1e-8)` | `+1 / 0 / −1` for max real eigenvalue's sign. |
+| `spectral_abscissa_difference(A, B)` | `|max Re(λ(A)) − max Re(λ(B))|`. Preferred stability-magnitude metric — Lipschitz-stable on diagonalizable operators. Not a hyperbolicity test (hyperbolicity requires no eigenvalue on the imaginary axis, a stricter condition). |
+| `stability_sign(operator, tolerance=1e-8)` | `+1 / 0 / −1` for the spectral-abscissa sign — a linearized-stability classifier (renamed from `hyperbolicity_sign`, which was a misnomer). |
 
 ### Archetypes — `ao.fit_archetypes`, `ao.transfer_test`, `ao.spectral_summary`
 
@@ -327,7 +330,7 @@ The code treats the following conditions as analyses to disclose rather than imp
 
 ## Current implementation status
 
-This repository is an **implementation baseline**, not a completed biological benchmark. It contains synthetic recovery and safety tests; it does not claim a K562/RPE1 result, a reference `dim(M)`, or a Phase 2 conclusion before public data are run end-to-end. The Replogle data portal provides processed AnnData resources and a documented route to raw or matrix-formatted data.[3]
+This repository ships the implementation, tests, executed K562/RPE1 essential-gene runs (188/200 K562 and 153/200 RPE1 guides retained; full rank d=30 in both), a Jost 2020 refit at d=30 (122/124 sgRNAs retained, rank(U) = 25), and the target-held-out nested-CV check that motivates the manuscript's central claim. The claim itself is narrow: under the additive-input encoding, on three current Perturb-seq screens, held-out prediction of new perturbations does not beat the predict-zero baseline, while a matched-SNR linear-truth positive control on the same U, κ, and σ does. The Replogle data portal provides the processed AnnData resources used here.[3]
 
 | Component | Status |
 |---|---|
@@ -342,8 +345,8 @@ This repository is an **implementation baseline**, not a completed biological be
 | `ao.analyses` module (`measurement_report`, `benchmark_report`, `archetype_report`, `efficiency_comparison_report`) | Implemented |
 | `ao.load_replogle_h5ad` (auto-detecting Replogle 2022 schema loader) | Implemented |
 | Public K562/RPE1 essential-gene benchmark on Replogle data | **Executed**: K562 essential (188/200 guides, full rank d=30, cond 65.0) and RPE1 essential (153/200 guides, full rank d=30, cond 65.27). See `MANUSCRIPT.md` and `01b`/`01c` notebooks. |
-| Random-split null diagnostic on `linearity_check` (`n_null=` argument) + `held_out_prediction_check` | Both diagnostics implemented and shipped. **Central paper finding**: at published Perturb-seq scale (d≈30, n≈200, per-guide Δz noise σ≈0.266), both diagnostics are noise-limited — observed values on Replogle K562 and RPE1 essential-gene screens (rel_diff = 1.47/1.57; held-out ρ = 1.12/1.22) fall within 0.05 of the noise-floor prediction for a synthetic linear ground truth at matched (d, n, U, κ, σ). The preregistered 0.25 threshold is unreachable at this scale for any dataset (linear or nonlinear). Detection of moderate saturating nonlinearity requires ~48k cells/guide with wide κ (~300× current published Perturb-seq). See MANUSCRIPT.md §3.5–§3.6 for the power analysis; `reproduction/10_figS10_realscale_positive_control.py` for the methodology; `tutorial/04_linearity_diagnostics_power_analysis.ipynb` for how to apply it to your own data. |
-| Shared `scjdo.operator` metric substrate | Release blocker: sibling repository was not available in this workspace |
+| Random-split null diagnostic on `linearity_check` (`n_null=` argument) + `held_out_prediction_check` | Both diagnostics implemented and shipped. **Central paper finding**: at published Perturb-seq scale (d≈30, n≈200, per-guide Δz noise anchors K562 σ=0.240 and RPE1 σ=0.352 measured via within-guide split-half bootstrap; older combined σ≈0.266 figures S10–S12 retained for reproducibility), both diagnostics are noise-limited — observed values on Replogle K562 and RPE1 essential-gene screens (rel_diff = 1.47/1.57; held-out ρ = 1.12/1.22) fall within 0.05 of the noise-floor prediction for a synthetic linear ground truth at matched (d, n, U, κ, σ). The preregistered 0.25 threshold is unreachable at this scale for any dataset (linear or nonlinear). The random-split diagnostic is also confounded by target composition (different targets fall in each half), so it detects bin-composition heterogeneity as well as any true within-target dose-response nonlinearity — read it as a stability/composition diagnostic rather than a specific linearity test. Detection of moderate saturating nonlinearity requires ~48k cells/guide with wide κ (~300× current published Perturb-seq). See MANUSCRIPT.md §2.5–§2.6 for the power analysis; `reproduction/10_figS10_realscale_positive_control.py` for the methodology; `tutorial/04_linearity_diagnostics_power_analysis.ipynb` for how to apply it to your own data. |
+| Shared `scjdo.operator` metric substrate | Not applicable — the sibling repository is no longer a release blocker; the `scJDO` cross-tool comparator was removed from the manuscript in Round 2. This row is retained as historical context and will be dropped at the next README rewrite. |
 | Phase 4 constrained anchored inference | Deliberately gated on preregistered Phase 2 above-null evidence |
 
 Read [`STRATEGY_REVIEW.md`](STRATEGY_REVIEW.md) for the detailed mathematical correction, experimental risk register, and release gates. Read [`PREREGISTRATION.md`](PREREGISTRATION.md) before any Phase 2 benchmark is executed. Read [`SPEC.md`](SPEC.md) §"Modeling assumption caveat — additive-input vs. intervention" for the documented systematic bias direction that `anchor-op` (as an additive-input tool) has against intervention-like CRISPRi biology, and for the reason a program-space intervention alternative is not shipped.
@@ -354,18 +357,18 @@ Read [`STRATEGY_REVIEW.md`](STRATEGY_REVIEW.md) for the detailed mathematical co
 - **`reproduction/`** — one script per manuscript figure. Regenerates every figure in `manuscript_figures/`. See `reproduction/README.md` for data dependencies and runtimes.
 - **`examples/`** — original API walkthrough notebooks on real data (Replogle K562, Replogle RPE1, K562 aggregate, synthetic). Overlaps partly with `tutorial/` but retained as executed real-data references.
 - **`src/anchorop/`** — the package.
-- **`tests/`** — pytest suite (56 tests).
+- **`tests/`** — pytest suite (59 tests).
 - **`manuscript_figures/`** — every figure referenced in `MANUSCRIPT.md`.
 - **`results/`** — pickled measurement bundles produced by `reproduction/03` and `reproduction/04`; loaded by `reproduction/05` and `reproduction/10`.
 
 ## Example notebooks in `examples/`
 
-Every notebook opens with a `> **STATUS —**` banner identifying it as real data, demo, or synthetic. **Note**: numeric claims in older notebook markdown may pre-date the paper's power-analysis reframing of the linearity diagnostics (§3.5–§3.6). The `tutorial/` notebooks reflect the current framing.
+Every notebook opens with a `> **STATUS —**` banner identifying it as real data, demo, or synthetic. **Note**: numeric claims in older notebook markdown may pre-date the paper's power-analysis reframing of the linearity diagnostics (§2.5–§2.6). The `tutorial/` notebooks reflect the current framing.
 
 | Notebook | Status | Purpose |
 |---|---|---|
 | `01_measure_k562.ipynb` | Real data (partial identification on this dataset) | Full measurement pipeline on raw 10x + CRISPR analysis tarballs (K562 84K noncoding-element aggregate) |
-| `01b_measure_k562_replogle.ipynb` | Real data (executed) | Replogle 2022 K562 essential-gene screen — 188/200 guides retained, full rank 30/30, cond 65.0. Linearity diagnostics run but are noise-limited at this scale (see MANUSCRIPT.md §3.5–§3.6). |
+| `01b_measure_k562_replogle.ipynb` | Real data (executed) | Replogle 2022 K562 essential-gene screen — 188/200 guides retained, full rank 30/30, cond 65.0. Linearity diagnostics run but are noise-limited at this scale (see MANUSCRIPT.md §2.5–§2.6). |
 | `01c_measure_rpe1_replogle.ipynb` | Real data (executed) | Replogle 2022 RPE1 essential-gene screen — 153/200 guides retained, full rank 30/30, cond 65.27. Linearity diagnostics also noise-limited at this scale. |
 | `02_benchmark.ipynb` | Infrastructure real + illustrative baseline methods | Preregistered inferred-vs-measured comparison + coordinate transforms. Runs against the K562 essential-gene measurement with four constructed baselines until real third-party operators are supplied. |
 | `03_archetypes.ipynb` | Demo (bootstrap when only one state is available) | Operator archetypes and cross-state transfer test |
@@ -373,9 +376,9 @@ Every notebook opens with a `> **STATUS —**` banner identifying it as real dat
 
 ## Manuscript
 
-A full methods paper is at [`MANUSCRIPT.md`](MANUSCRIPT.md) (~6,300 words main text, ~370-word abstract) with figures in `manuscript_figures/`. Mathematical derivations are in [`MATH.md`](MATH.md) — every non-trivial equation is numerically validated. The paper's central contribution is a matched-scale positive control for perturbation-response operator recovery at published Perturb-seq scale. Target venue is a full methods journal (PLOS Computational Biology / Bioinformatics research paper / Genome Biology methods track). All numeric claims reproduce from the 56-test suite plus the per-figure scripts in `reproduction/`.
+A full methods paper is at [`MANUSCRIPT.md`](MANUSCRIPT.md) (~6,300 words main text, ~370-word abstract) with figures in `manuscript_figures/`. Mathematical derivations are in [`MATH.md`](MATH.md) — every non-trivial equation is numerically validated. The paper's central contribution is a matched-geometry positive control for perturbation-response operator recovery at published Perturb-seq scale. Target venue is a full methods journal (PLOS Computational Biology / Bioinformatics research paper / Genome Biology methods track). All numeric claims reproduce from the 56-test suite plus the per-figure scripts in `reproduction/`.
 
-Headline result: **at Replogle-scale geometry and each dataset's own noise level, full-operator recovery is practically absent; leading-direction alignment is stronger but does not meet the predefined recovery threshold. The result is strongly incompatible with interpreting fitted spectra or edges as quantitatively estimated full operators under the tested model and noise conditions.** Under a synthetic linear ground truth `J_true` at Replogle-matched (d=30, real U, real κ, per-dataset σ measured from within-guide bootstrap: K562 σ=0.240, RPE1 σ=0.352, Jost σ=0.036 per target-aggregate), a 200-replicate pipeline-matched empirical null shows the anchor-op fit's Frobenius cosine with truth (+0.033 K562, +0.025 RPE1) is *statistically indistinguishable* from a cross-replicate null pairing each fit with an independently drawn ground truth (K562 null +0.035, z = −0.05). The fit is shrunk ~150-fold in norm. Result holds under dense, 10%-sparse, 2%-sparse, and rank-5 ground-truth structures (Fig S13), is not rescued by a sparsity-aware row-wise LASSO fit under oracle penalty selection (cos ≈ +0.06; Fig S14), and is robust to the noise-model choice (residual-resampled vs i.i.d. Gaussian differences within 1 SD; Fig S17) and to the ground-truth stability shift (full-operator cos ∈ [0.02, 0.06] across c ∈ [0.5, 3.0]; Fig S18). Leading-direction alignment (cos_1 ≈ 0.29 mean over 200 replicates on K562) is statistically detectable on the population mean (mean-difference z ≈ 12 vs shuffled-U null) but not on any individual replicate (per-rep SD ≈ 0.33; z_per-rep ≈ 0.9), and remains below the prespecified up-to-scale threshold of 0.5. Full-operator direction recovery would require per-guide σ ≲ 0.01, corresponding to ~68k cells/guide (~550× current). Downstream: both linearity diagnostics (`linearity_check`, `held_out_prediction_check`) are also noise-limited at published scale (Figs S10–S12). Tool-level positive contributions independent of the recovery gap: (1) type-level identifiability discipline (preregistered `rank_tol` guard, hard block on full Jacobian at partial identification); (2) data-format-aware efficiency-estimation regime (`efficiency_estimator="auto"` router: `mean_ratio` on count data + `min_control_detection_rate` filter, `detection_rate` documented as the analytic signed-shift statistic on pre-scaled residual data). Actionable output: run the matched-scale operator-recovery positive control on evaluation datasets before drawing inference-tool conclusions.
+Headline result: **on three current Perturb-seq screens — Replogle K562 essential, Replogle RPE1 essential, and Jost 2020 GSE132080 — the projected additive-input encoding `u_g = −κ_g Wᵀδ_g` cannot get held-out ρ below the predict-zero baseline of 1 under target-held-out nested cross-validation, while a matched-SNR linear-truth positive control on the same U, κ, and per-entry σ reaches ρ well below 1 in every case.** Real nested-CV ρ = 0.96 (K562, 5-fold SD 0.02), 1.00 (RPE1), 1.00 (Jost at d=30, 1.01 at d=5 where the identifiability regime is comfortably overdetermined); matched linear-truth ρ = 0.18, 0.53, 0.72 (0.32 at Jost d=5). The failure persists when K562 targets are sampled at random (real 1.00 vs matched 0.43), when the coordinate system is truncated to d=5 (Jost overdetermined), and when perturbation strength is removed from the fit (direction-only refits), so mis-estimated knockdown efficiency is not the explanation. It is also not a signal-amplitude story: at the observed amplitude the estimator recovers a known operator's interaction-only structure (interaction-only cosine 0.98 [K562] / 0.74 [RPE1] against a null near 0.003). On Jost's titrated design the model does capture within-target dose interpolation (guide-level ρ = 0.66 vs matched linear-truth 0.22), a distinct diagnostic that predicts along known target directions. Whether the failure comes from projecting targets onto expression programs or from nonlinear dose responses remains open. Tool-level positive contributions independent of the recovery gap: (1) identifiability discipline — preregistered `rank_tol` guard, TSVD-vs-Tikhonov shrinkage disclosure (`report.is_hard_projector`), and a **rank-U-aware `full_domain_identified` gate** that refuses when either rank(U) or rank(retained S) is less than d (fixes a bug that would have called Jost's `rank(U) = 25 < d = 30` design "full-domain identified"); (2) data-format-aware efficiency-estimation regime (`efficiency_estimator="auto"` router: `mean_ratio` on count data + `min_control_detection_rate` filter, `detection_rate` documented as a signed-shift proxy on pre-scaled residual data — not fractional target-transcript knockdown). Actionable output: run the target-held-out nested-CV check with a matched-SNR linear-truth positive control on evaluation datasets before reporting inferred operators as biologically meaningful; the recipe is `reproduction/40_nested_cv_rho.py`.
 
 ## Scope and non-goals
 
@@ -391,7 +394,7 @@ Assumes the conda environment from [Installation](#installation) is active. Then
 pytest -q
 ```
 
-The suite (currently **56 tests**) includes `test_ACCEPTANCE_` synthetic recovery, partial-identification orientation, regularization, safety, null-calibration, archetype, efficiency-estimator, linearity-check, held-out-prediction, and analyses-API tests. CI runs the suite on supported Python versions. Tests that exercise plotting are marked `pytest.mark.skipif(not matplotlib installed)` so the core suite runs without a display or matplotlib when a caller has opted into the pip-only path.
+The suite (currently **59 tests**) includes `test_ACCEPTANCE_` synthetic recovery, partial-identification orientation, regularization, safety, null-calibration, archetype, efficiency-estimator, linearity-check, held-out-prediction, full-domain-gate, and analyses-API tests. CI runs the suite on supported Python versions. Tests that exercise plotting are marked `pytest.mark.skipif(not matplotlib installed)` so the core suite runs without a display or matplotlib when a caller has opted into the pip-only path.
 
 ## License
 
