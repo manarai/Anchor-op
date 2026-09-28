@@ -859,29 +859,6 @@ baseline on every (screen × encoding) cell, so the estimator recovers
 signal that no fitted encoding on the real data does on RPE1 or Jost,
 and only fixed and footprint on K562 close a small fraction of the gap.
 
-| Screen | Train-mean baseline | Fixed | Footprint | Learned (prog) | Learned (gene) | Shuffled null p2.5 |
-|---|---:|---:|---:|---:|---:|---:|
-| K562 essential | 0.8382 | 0.8826 | 0.8538 | 1.0004 | 1.0002 | 0.9999 |
-| RPE1 essential | 0.9341 | 0.9892 | 0.9859 | 1.0003 | 1.0001 | 1.0000 |
-| Jost 2020 | 0.9681 | 1.0010 | 0.9843 | 1.0029 | 1.0047 | 1.0002 |
-
-**Verdict (all 9 encoding × screen cells): success = False.** No encoding
-sits more than 2 outer-fold SDs below the training-mean baseline on any
-screen; the learned encoding does not fall below its own shuffled-null
-2.5th percentile on any screen.
-
-**Decision rule invoked:** *"Learned also fails: report that neither
-fixed nor learned linear encodings predict held-out targets beyond the
-training mean on these screens."* No promotion of a learned-encoding
-result; no title / abstract update.
-
-Matched-linear-truth ρ_fwd under each encoding's U (for reference):
-K562 fixed 0.5798, footprint 0.3909; the matched linear generator recovers
-signal that no fitted encoding on the real data does, corroborating the
-target-held-out failure being a data-side property (identifiability at
-these SNRs, plus the shared-mode dominance of training responses) rather
-than an encoding-choice failure.
-
 ## Step 2 — Positive-control ensembles at matched amplitude
 
 Command: `python reproduction/52_positive_control_ensembles.py`
