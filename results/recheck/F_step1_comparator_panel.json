@@ -1,0 +1,559 @@
+{
+  "seed": 20260928,
+  "n_perm_learned": 100,
+  "n_lin_sim": 15,
+  "screens": {
+    "K562_essential": {
+      "screen": "K562_essential",
+      "n_guides": 188,
+      "n_targets": 188,
+      "sigma": 0.24,
+      "alpha_S": 369.0,
+      "inverse_tsvd_real": {
+        "rho_pooled": 0.9672735956275617,
+        "per_fold_rho": [
+          0.9973957992991754,
+          0.9821024599170656,
+          0.9815944858996625,
+          0.9464628387083228,
+          0.9242470445223078
+        ],
+        "per_fold_sd": 0.03005217749247795,
+        "picked_hp": [
+          3,
+          5,
+          3,
+          3,
+          3
+        ]
+      },
+      "inverse_ridge_real": {
+        "rho_pooled": 0.9614954056371499,
+        "per_fold_rho": [
+          0.9850795028913993,
+          0.9754055715004207,
+          0.9739837392584718,
+          0.9441226071194286,
+          0.9249182952697578
+        ],
+        "per_fold_sd": 0.025210176776014347,
+        "picked_hp": [
+          1000.0,
+          300.0,
+          1000.0,
+          1000.0,
+          1000.0
+        ]
+      },
+      "inverse_tsvd_matched_linear": {
+        "rho_mean": 0.18248663327294157,
+        "rho_std": 0.0043770205903791255,
+        "n_reps": 15
+      },
+      "inverse_ridge_matched_linear": {
+        "rho_mean": 0.1825160773168588,
+        "rho_std": 0.004386745238803813,
+        "n_reps": 15
+      },
+      "forward_baseline_zero": {
+        "rho_pooled": 1.0
+      },
+      "forward_baseline_train_mean": {
+        "rho_pooled": 0.838223561993445,
+        "per_fold_rho": [
+          0.8436654040889181,
+          0.8183321622222034,
+          0.8651453786996748,
+          0.814530182354809,
+          0.8522847303884603
+        ],
+        "per_fold_sd": 0.021837726335761507
+      },
+      "forward_fixed": {
+        "rho_pooled": 0.8825794119749043,
+        "per_fold_rho": [
+          0.9169775527063841,
+          0.8954717755484729,
+          0.8966664219443625,
+          0.8496864893032033,
+          0.8481998355777699
+        ],
+        "per_fold_sd": 0.030841686238608994,
+        "picked_lambda": [
+          0.01,
+          0.001,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "forward_fixed_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.10705442379672525,
+        "rho_std": 0.014486855471035854
+      },
+      "forward_footprint": {
+        "rho_pooled": 0.8537821714310697,
+        "per_fold_rho": [
+          0.8862158194469019,
+          0.8733118226205885,
+          0.8164493585950626,
+          0.8182421232095739,
+          0.8734632543505364
+        ],
+        "per_fold_sd": 0.03345603807169589,
+        "picked_lambda": [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      },
+      "forward_footprint_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.00934180552525901,
+        "rho_std": 0.001724657409344806
+      },
+      "forward_learned": {
+        "program_space": {
+          "rho_pooled": 1.000412870374992,
+          "per_fold_rho": [
+            1.0006422016959238,
+            1.0006501269009938,
+            0.99951953199574,
+            1.0004070659813409,
+            1.0006826552703796
+          ],
+          "per_fold_sd": 0.0004935726233112049
+        },
+        "gene_space": {
+          "rho_pooled": 1.0001509227140655,
+          "per_fold_rho": [
+            1.0003021710840612,
+            1.0003833006930092,
+            0.9994783454337074,
+            1.0000672233100298,
+            1.0003754515847678
+          ],
+          "per_fold_sd": 0.00038153197864953685
+        },
+        "picked_lambda": [
+          30.0,
+          30.0,
+          30.0,
+          30.0,
+          30.0
+        ]
+      },
+      "forward_learned_shuffled_null": {
+        "n_perm": 100,
+        "rho_mean": 1.0001678853569107,
+        "rho_std": 0.00011794424299111077,
+        "p025": 0.9999372842826036,
+        "p50": 1.0001653255423635,
+        "p975": 1.0003838975019175
+      },
+      "forward_verdicts": {
+        "forward_fixed": {
+          "rho_fwd": 0.8825794119749043,
+          "per_fold_sd": 0.030841686238608994,
+          "train_mean_baseline_rho": 0.838223561993445,
+          "train_mean_baseline_sd": 0.021837726335761507,
+          "gap_below_tm": -0.04435584998145925,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_footprint": {
+          "rho_fwd": 0.8537821714310697,
+          "per_fold_sd": 0.03345603807169589,
+          "train_mean_baseline_rho": 0.838223561993445,
+          "train_mean_baseline_sd": 0.021837726335761507,
+          "gap_below_tm": -0.01555860943762466,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_learned": {
+          "rho_fwd": 1.000412870374992,
+          "per_fold_sd": 0.0004935726233112049,
+          "train_mean_baseline_rho": 0.838223561993445,
+          "train_mean_baseline_sd": 0.021837726335761507,
+          "gap_below_tm": -0.16218930838154688,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": false,
+          "success": false
+        }
+      }
+    },
+    "RPE1_essential": {
+      "screen": "RPE1_essential",
+      "n_guides": 153,
+      "n_targets": 153,
+      "sigma": 0.352,
+      "alpha_S": 199.0,
+      "inverse_tsvd_real": {
+        "rho_pooled": 1.0010560828144297,
+        "per_fold_rho": [
+          1.0,
+          1.003103012769266,
+          1.001603611295413,
+          1.000480400606922,
+          1.0
+        ],
+        "per_fold_sd": 0.0013275915399112229,
+        "picked_hp": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ]
+      },
+      "inverse_ridge_real": {
+        "rho_pooled": 0.9989651556827985,
+        "per_fold_rho": [
+          0.9952973071320507,
+          0.9989193332403902,
+          1.0006701963195754,
+          0.9998159880370258,
+          0.9982772969447721
+        ],
+        "per_fold_sd": 0.00205415139646996,
+        "picked_hp": [
+          10000.0,
+          1000.0,
+          1000.0,
+          1000.0,
+          10000.0
+        ]
+      },
+      "inverse_tsvd_matched_linear": {
+        "rho_mean": 0.5363915884143159,
+        "rho_std": 0.021883977663765083,
+        "n_reps": 15
+      },
+      "inverse_ridge_matched_linear": {
+        "rho_mean": 0.5322270509319443,
+        "rho_std": 0.015434057146618696,
+        "n_reps": 15
+      },
+      "forward_baseline_zero": {
+        "rho_pooled": 1.0
+      },
+      "forward_baseline_train_mean": {
+        "rho_pooled": 0.9341255146207265,
+        "per_fold_rho": [
+          0.896541319816431,
+          0.9423214825705839,
+          0.9388428024009915,
+          0.9742161614300814,
+          0.96020456254129
+        ],
+        "per_fold_sd": 0.029346830116575594
+      },
+      "forward_fixed": {
+        "rho_pooled": 0.9892427656830842,
+        "per_fold_rho": [
+          0.9745388044415005,
+          0.9896926384806805,
+          1.0013531465618526,
+          1.025248753331287,
+          0.9877954752331847
+        ],
+        "per_fold_sd": 0.019048947952204378,
+        "picked_lambda": [
+          0.01,
+          0.01,
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      "forward_fixed_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.35816124319842746,
+        "rho_std": 0.04864851344758547
+      },
+      "forward_footprint": {
+        "rho_pooled": 0.9858889009180122,
+        "per_fold_rho": [
+          1.0111579408575184,
+          0.9906286698844076,
+          0.9836458973362239,
+          0.9708572891038504,
+          0.9804648300299164
+        ],
+        "per_fold_sd": 0.01508892950616863,
+        "picked_lambda": [
+          10.0,
+          30.0,
+          1.0,
+          10.0,
+          10.0
+        ]
+      },
+      "forward_footprint_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.022220172680067523,
+        "rho_std": 0.0035595677059648127
+      },
+      "forward_learned": {
+        "program_space": {
+          "rho_pooled": 1.0002996152534338,
+          "per_fold_rho": [
+            1.0004664079183052,
+            1.0001576172162747,
+            1.0002862066442648,
+            1.0004219676440969,
+            1.0002326232033698
+          ],
+          "per_fold_sd": 0.00012916080422555897
+        },
+        "gene_space": {
+          "rho_pooled": 1.000127404750467,
+          "per_fold_rho": [
+            1.0002235396411256,
+            1.000092794822588,
+            1.0001453954592834,
+            1.0001961064370655,
+            1.0000624143785475
+          ],
+          "per_fold_sd": 6.767893662043065e-05
+        },
+        "picked_lambda": [
+          30.0,
+          30.0,
+          30.0,
+          30.0,
+          30.0
+        ]
+      },
+      "forward_learned_shuffled_null": {
+        "n_perm": 100,
+        "rho_mean": 1.000236579127548,
+        "rho_std": 0.00014235290241208456,
+        "p025": 0.9999765000895855,
+        "p50": 1.0002279577542,
+        "p975": 1.0005370319712612
+      },
+      "forward_verdicts": {
+        "forward_fixed": {
+          "rho_fwd": 0.9892427656830842,
+          "per_fold_sd": 0.019048947952204378,
+          "train_mean_baseline_rho": 0.9341255146207265,
+          "train_mean_baseline_sd": 0.029346830116575594,
+          "gap_below_tm": -0.055117251062357764,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_footprint": {
+          "rho_fwd": 0.9858889009180122,
+          "per_fold_sd": 0.01508892950616863,
+          "train_mean_baseline_rho": 0.9341255146207265,
+          "train_mean_baseline_sd": 0.029346830116575594,
+          "gap_below_tm": -0.05176338629728572,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_learned": {
+          "rho_fwd": 1.0002996152534338,
+          "per_fold_sd": 0.00012916080422555897,
+          "train_mean_baseline_rho": 0.9341255146207265,
+          "train_mean_baseline_sd": 0.029346830116575594,
+          "gap_below_tm": -0.06617410063270734,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": false,
+          "success": false
+        }
+      }
+    },
+    "Jost_2020": {
+      "screen": "Jost_2020",
+      "n_guides": 122,
+      "n_targets": 25,
+      "sigma": 0.066,
+      "alpha_S": 29.6,
+      "inverse_tsvd_real": {
+        "rho_pooled": 1.0004086667066723,
+        "per_fold_rho": [
+          1.0,
+          0.9999999999999999,
+          1.0000000000000002,
+          1.002591428922865,
+          1.0
+        ],
+        "per_fold_sd": 0.0011589222460770335,
+        "picked_hp": [
+          0,
+          0,
+          0,
+          1,
+          0
+        ]
+      },
+      "inverse_ridge_real": {
+        "rho_pooled": 0.9941035366389208,
+        "per_fold_rho": [
+          0.997914478030942,
+          0.9841696603274374,
+          0.9987075350210823,
+          0.996805523208507,
+          0.9912347972313948
+        ],
+        "per_fold_sd": 0.006110729527740029,
+        "picked_hp": [
+          300.0,
+          300.0,
+          300.0,
+          300.0,
+          300.0
+        ]
+      },
+      "inverse_tsvd_matched_linear": {
+        "rho_mean": 0.7285222726866714,
+        "rho_std": 0.02577606494547571,
+        "n_reps": 15
+      },
+      "inverse_ridge_matched_linear": {
+        "rho_mean": 0.7032992786989933,
+        "rho_std": 0.02075641434643474,
+        "n_reps": 15
+      },
+      "forward_baseline_zero": {
+        "rho_pooled": 1.0
+      },
+      "forward_baseline_train_mean": {
+        "rho_pooled": 0.9681183332637966,
+        "per_fold_rho": [
+          1.0005067782041162,
+          0.9603861528859465,
+          1.0983346128941474,
+          0.9555614690116997,
+          0.921396713867804
+        ],
+        "per_fold_sd": 0.06815060002736784
+      },
+      "forward_fixed": {
+        "rho_pooled": 1.001014971504826,
+        "per_fold_rho": [
+          1.0023533354588205,
+          0.9854382487461067,
+          1.2077748700396338,
+          0.9944430759202814,
+          0.9690797447986834
+        ],
+        "per_fold_sd": 0.09913758307600472,
+        "picked_lambda": [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      },
+      "forward_fixed_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.5798465074849735,
+        "rho_std": 0.04581558681834331
+      },
+      "forward_footprint": {
+        "rho_pooled": 0.9842986952878716,
+        "per_fold_rho": [
+          0.9667678901827417,
+          0.9584308460553884,
+          0.9974786508982078,
+          0.9773018040021266,
+          1.0102507402686436
+        ],
+        "per_fold_sd": 0.021489983820659357,
+        "picked_lambda": [
+          1.0,
+          0.1,
+          1.0,
+          0.1,
+          0.1
+        ]
+      },
+      "forward_footprint_matched_linear": {
+        "n_reps": 15,
+        "rho_mean": 0.3909335081399848,
+        "rho_std": 0.0410033621459268
+      },
+      "forward_learned": {
+        "program_space": {
+          "rho_pooled": 1.0029475928953366,
+          "per_fold_rho": [
+            0.9962959427065953,
+            1.0019664670260866,
+            1.0050146974091274,
+            1.006488115350898,
+            1.0332796641119102
+          ],
+          "per_fold_sd": 0.01433347005046114
+        },
+        "gene_space": {
+          "rho_pooled": 1.0046722830120145,
+          "per_fold_rho": [
+            0.9966283250112944,
+            1.0036014305693304,
+            1.0077696134244378,
+            1.0066586310775434,
+            1.0229707889682875
+          ],
+          "per_fold_sd": 0.009663264817149955
+        },
+        "picked_lambda": [
+          0.001,
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ]
+      },
+      "forward_learned_shuffled_null": {
+        "n_perm": 100,
+        "rho_mean": 1.0058419783392234,
+        "rho_std": 0.0027804374545415964,
+        "p025": 1.0002016787784629,
+        "p50": 1.005969228518968,
+        "p975": 1.0113686001348061
+      },
+      "forward_verdicts": {
+        "forward_fixed": {
+          "rho_fwd": 1.001014971504826,
+          "per_fold_sd": 0.09913758307600472,
+          "train_mean_baseline_rho": 0.9681183332637966,
+          "train_mean_baseline_sd": 0.06815060002736784,
+          "gap_below_tm": -0.0328966382410294,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_footprint": {
+          "rho_fwd": 0.9842986952878716,
+          "per_fold_sd": 0.021489983820659357,
+          "train_mean_baseline_rho": 0.9681183332637966,
+          "train_mean_baseline_sd": 0.06815060002736784,
+          "gap_below_tm": -0.016180362024075023,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": null,
+          "success": false
+        },
+        "forward_learned": {
+          "rho_fwd": 1.0029475928953366,
+          "per_fold_sd": 0.01433347005046114,
+          "train_mean_baseline_rho": 0.9681183332637966,
+          "train_mean_baseline_sd": 0.06815060002736784,
+          "gap_below_tm": -0.034829259631540044,
+          "beats_tm_by_2SD": false,
+          "below_shuffled_null_p025": false,
+          "success": false
+        }
+      }
+    }
+  }
+}

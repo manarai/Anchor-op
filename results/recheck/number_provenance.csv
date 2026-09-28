@@ -159,3 +159,35 @@ RPE1 footprint nested-CV rho,1.00,MANUSCRIPT §2.6 Table 3,results/recheck/F_foo
 RPE1 footprint shuffled-null 2.5pct,0.98,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,
 Jost footprint nested-CV rho,1.00,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,pooled 0.9979
 Jost footprint shuffled-null 2.5pct,0.98,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,
+K562 forward train-mean baseline rho_fwd,0.8382,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_baseline_train_mean rho_pooled
+RPE1 forward train-mean baseline rho_fwd,0.9341,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_baseline_train_mean rho_pooled
+Jost forward train-mean baseline rho_fwd,0.9681,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_baseline_train_mean rho_pooled
+K562 forward fixed encoding rho_fwd,0.8826,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_fixed rho_pooled
+K562 forward footprint encoding rho_fwd,0.8538,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_footprint rho_pooled
+K562 forward learned encoding rho_fwd (program space),1.0004,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned program_space rho_pooled
+K562 forward learned encoding rho_fwd (gene space),1.0002,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned gene_space rho_pooled
+K562 forward learned shuffled-null 2.5pct,0.9999,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned_shuffled_null p025
+RPE1 forward fixed encoding rho_fwd,0.9892,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_fixed rho_pooled
+RPE1 forward footprint encoding rho_fwd,0.9859,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_footprint rho_pooled
+RPE1 forward learned encoding rho_fwd (program space),1.0003,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned program_space rho_pooled
+RPE1 forward learned encoding rho_fwd (gene space),1.0001,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned gene_space rho_pooled
+RPE1 forward learned shuffled-null 2.5pct,1.0000,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned_shuffled_null p025
+Jost forward fixed encoding rho_fwd,1.0010,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_fixed rho_pooled
+Jost forward footprint encoding rho_fwd,0.9843,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_footprint rho_pooled
+Jost forward learned encoding rho_fwd (program space),1.0029,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned program_space rho_pooled
+Jost forward learned encoding rho_fwd (gene space),1.0047,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned gene_space rho_pooled
+Jost forward learned shuffled-null 2.5pct,1.0002,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,forward_learned_shuffled_null p025
+K562 inverse Ridge nested-CV real rho,0.9615,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_real rho_pooled
+RPE1 inverse Ridge nested-CV real rho,0.9990,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_real rho_pooled
+Jost inverse Ridge nested-CV real rho,0.9941,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_real rho_pooled
+K562 inverse Ridge matched-linear rho,0.1825,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_matched_linear rho_mean
+RPE1 inverse Ridge matched-linear rho,0.5322,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_matched_linear rho_mean
+Jost inverse Ridge matched-linear rho,0.7033,MANUSCRIPT §2.x comparator panel,results/recheck/F_step1_comparator_panel.json,reproduction/51_comparator_panel.py,inverse_ridge_matched_linear rho_mean
+K562 Step 2 ensembles beats predict-zero (5/5),True,MANUSCRIPT §2.2 supp,results/recheck/F_step2_ensembles.json,reproduction/52_positive_control_ensembles.py,dense/sparse_10/sparse_2/rank_5/block_modular all True
+RPE1 Step 2 ensembles beats predict-zero (5/5),True,MANUSCRIPT §2.2 supp,results/recheck/F_step2_ensembles.json,reproduction/52_positive_control_ensembles.py,dense/sparse_10/sparse_2/rank_5/block_modular all True
+Jost Step 2 ensembles beats predict-zero (5/5),True,MANUSCRIPT §2.2 supp,results/recheck/F_step2_ensembles.json,reproduction/52_positive_control_ensembles.py,dense/sparse_10/sparse_2/rank_5/block_modular all True
+K562 random-panel real rho median (N=50 panels),0.9988,MANUSCRIPT §2.3 & Fig 4a,results/recheck/F_step3_random_panels.json,reproduction/53_random_panel_distribution.py,50 panels of 200 targets from 1581 qualifying
+K562 random-panel real rho 5th–95th percentile,0.9855–1.0054,MANUSCRIPT §2.3 & Fig 4a,results/recheck/F_step3_random_panels.json,reproduction/53_random_panel_distribution.py,N=50 panels
+K562 random-panel matched-linear rho median,0.3700,MANUSCRIPT §2.3 & Fig 4a,results/recheck/F_step3_random_panels.json,reproduction/53_random_panel_distribution.py,per-panel mean of N=5 sims
+K562 random-panel fraction real rho below 0.95,0.0,MANUSCRIPT §2.3 & Fig 4a,results/recheck/F_step3_random_panels.json,reproduction/53_random_panel_distribution.py,preregistered criterion
+K562 random-panel n_qualifying_targets,1581,MANUSCRIPT §2.3,results/recheck/F_step3_random_panels.json,reproduction/53_random_panel_distribution.py,preregistered estimate ~1740 pre-QC; 1581 post-pipeline

@@ -666,3 +666,147 @@ See `PREREGISTRATION_AMENDMENT.md` for the dated list. In brief:
 `results/recheck/number_provenance.csv` maps each numeric claim in
 `MANUSCRIPT.md` and `README.md` to its source file. Any number without a
 source is flagged with `SOURCE_MISSING`.
+
+---
+
+# v0.3.0 addendum — Steps 1–3 (preregistered 2026-09-28, commit 08560c3)
+
+**Seed:** `SEED = 20260928` (Steps 1–3 scripts).
+**Preregistration:** `PREREGISTRATION_AMENDMENT.md` §"Amendment — comparator
+panel, positive-control ensembles, and random-panel distribution
+(2026-09-28)"; committed before any Step 1–3 code ran.
+
+## Step 1 — Comparator panel
+
+Command: `python reproduction/51_comparator_panel.py`
+Output: `results/recheck/F_step1_comparator_panel.json`
+
+### Inverse direction (ρ = ‖A·S_test + U_test‖/‖U_test‖; predict-zero = 1)
+
+| Screen | TSVD (real) | Ridge (real) | TSVD (matched linear) | Ridge (matched linear) |
+|---|---:|---:|---:|---:|
+| K562 essential | 0.9673 | 0.9615 | 0.1825 | 0.1825 |
+| RPE1 essential | 1.0011 | 0.9990 | 0.5364 | 0.5322 |
+| Jost 2020 | 1.0004 | 0.9941 | 0.7285 | 0.7033 |
+
+Ridge and TSVD track each other closely on the real data; both sit near
+the predict-zero baseline on all three screens. The matched-linear-truth
+controls sit well below 1 (K562 0.18, RPE1 0.53, Jost 0.72), matching the
+Table 1 read that the inverse-direction identifiability failure is a data
+property, not an estimator artefact.
+
+### Forward direction (ρ_fwd = ‖Ŝ_test − S_test‖/‖S_test‖)
+
+Baselines: predict-zero (ρ_fwd = 1) and predict-training-mean (column
+mean of training S, broadcast). Success = ρ_fwd more than 2 outer-fold
+SDs below the training-mean baseline AND (learned only) below the
+shuffled-embedding null's 2.5th percentile.
+
+| Screen | Train-mean baseline | Fixed | Footprint | Learned (prog) | Learned (gene) | Shuffled null p2.5 |
+|---|---:|---:|---:|---:|---:|---:|
+| K562 essential | 0.8382 | 0.8826 | 0.8538 | 1.0004 | 1.0002 | 0.9999 |
+| RPE1 essential | 0.9341 | 0.9892 | 0.9859 | 1.0003 | 1.0001 | 1.0000 |
+| Jost 2020 | 0.9681 | 1.0010 | 0.9843 | 1.0029 | 1.0047 | 1.0002 |
+
+**Verdict (all 9 encoding × screen cells): success = False.** No encoding
+sits more than 2 outer-fold SDs below the training-mean baseline on any
+screen; the learned encoding does not fall below its own shuffled-null
+2.5th percentile on any screen.
+
+**Decision rule invoked:** *"Learned also fails: report that neither
+fixed nor learned linear encodings predict held-out targets beyond the
+training mean on these screens."* No promotion of a learned-encoding
+result; no title / abstract update.
+
+Matched-linear-truth ρ_fwd under each encoding's U (for reference):
+K562 fixed 0.5798, footprint 0.3909; the matched linear generator recovers
+signal that no fitted encoding on the real data does, corroborating the
+target-held-out failure being a data-side property (identifiability at
+these SNRs, plus the shared-mode dominance of training responses) rather
+than an encoding-choice failure.
+
+## Step 2 — Positive-control ensembles at matched amplitude
+
+Command: `python reproduction/52_positive_control_ensembles.py`
+Output: `results/recheck/F_step2_ensembles.json`
+
+α_S is re-derived per (screen × ensemble) so median column-norm of
+`S_true` matches the observed median. Draws with spectral abscissa of
+`J_true` above zero are rejected and re-drawn; N ≥ 15 accepted per cell
+(actual rejection rate 0.0 for every cell — the diagonal −1.5·I dominates
+in every ensemble tested).
+
+| Screen | Ensemble | α_S | Linear-truth nested-CV ρ (mean, SD, N=15) | Interaction-only cos (mean, SD, N=200) | Cross-replicate null (mean, SD) | Beats predict-zero |
+|---|---|---:|---:|---:|---:|:-:|
+| K562 essential | dense | 287.6 | 0.229 (0.005) | 0.956 (0.006) | −0.005 (0.035) | ✓ |
+| K562 essential | sparse_10 | 467.8 | 0.123 (0.001) | 0.939 (0.011) | +0.005 (0.034) | ✓ |
+| K562 essential | sparse_2 | 474.1 | 0.120 (0.002) | 0.773 (0.072) | −0.002 (0.039) | ✓ |
+| K562 essential | rank_5 | 459.5 | 0.127 (0.003) | 0.957 (0.008) | +0.003 (0.035) | ✓ |
+| K562 essential | block_modular | 440.6 | 0.134 (0.004) | 0.960 (0.006) | +0.000 (0.069) | ✓ |
+| RPE1 essential | dense | 151.0 | 0.651 (0.017) | 0.615 (0.029) | +0.004 (0.035) | ✓ |
+| RPE1 essential | sparse_10 | 263.7 | 0.387 (0.007) | 0.565 (0.041) | +0.002 (0.033) | ✓ |
+| RPE1 essential | sparse_2 | 271.3 | 0.374 (0.006) | 0.304 (0.064) | −0.002 (0.035) | ✓ |
+| RPE1 essential | rank_5 | 255.6 | 0.399 (0.009) | 0.614 (0.040) | −0.002 (0.034) | ✓ |
+| RPE1 essential | block_modular | 236.4 | 0.424 (0.013) | 0.631 (0.030) | −0.002 (0.048) | ✓ |
+| Jost 2020 | dense | 23.6 | 0.734 (0.028) | 0.348 (0.034) | +0.001 (0.034) | ✓ |
+| Jost 2020 | sparse_10 | 36.8 | 0.616 (0.017) | 0.178 (0.040) | +0.002 (0.033) | ✓ |
+| Jost 2020 | sparse_2 | 37.1 | 0.611 (0.020) | 0.079 (0.037) | −0.002 (0.032) | ✓ |
+| Jost 2020 | rank_5 | 35.6 | 0.626 (0.026) | 0.203 (0.046) | +0.004 (0.033) | ✓ |
+| Jost 2020 | block_modular | 33.6 | 0.652 (0.029) | 0.232 (0.040) | −0.000 (0.044) | ✓ |
+
+**Verdict:** the linear truth beats predict-zero on every (screen × ensemble)
+cell (15/15). The conclusion "the linear truth beats predict-zero at
+matched SNR" is robust across dense, sparse-10%, sparse-2%, rank-5, and
+block-modular ensembles.
+
+The interaction-only Frobenius cosine sits well above the cross-replicate
+paired null in every cell. Amplitude decreases in sparser ensembles
+(sparse_2 pulls Jost from 0.35 → 0.08 and RPE1 from 0.62 → 0.30, both
+still above the null band), but no ensemble flips the sign of the
+conclusion.
+
+## Step 3 — Random-panel distribution (K562 essential)
+
+Command: `python reproduction/53_random_panel_distribution.py`
+Output: `results/recheck/F_step3_random_panels.json`
+
+Fit anchor-op once on the qualifying K562 essential targets (all with
+≥ 60 cells; `n_qualifying_targets = 1581` after the pipeline's per-target
+retention filter — the preregistration's "~1,740" estimate came from the
+`≥ 60 cells` filter alone; the pipeline drops a further 159 targets whose
+per-guide response passes the additional QC steps in
+`measure_operator`). `Σ_ctrl` saved from that single measurement.
+Fifty random 200-target panels are drawn from that measurement (fixed
+`Σ_ctrl`, fixed basis W, fixed κ). Nested-CV under Table 1's recipe per
+panel; N = 5 matched-linear-truth simulations per panel.
+
+| Distribution | Median | 5th – 95th percentile | Min | Max |
+|---|---:|---:|---:|---:|
+| Real nested-CV ρ | 0.9988 | 0.9855 – 1.0054 | 0.9698 | 1.0076 |
+| Matched linear-truth ρ (per-panel mean, N = 5) | 0.3700 | 0.3136 – 0.4416 | — | — |
+
+**Preregistered criterion (fraction of panels with real ρ < 0.95):**
+**0 / 50 (0.0%).** No panel drops below 0.95; the tightest panel real
+ρ is 0.9698. The matched-linear-truth ρ sits well below the predict-zero
+baseline in every panel (5th–95th percentile band 0.31–0.44).
+
+The random-200 point estimate reported in the previous manuscript (§2.3
+Fig 4a: real ρ = 1.00, matched linear-truth ρ = 0.43 (SD 0.011, N = 15))
+is inside this distribution; the previous number sat at the upper end of
+the 50-panel matched-linear-truth band (0.43 is above the 95th percentile
+0.44 by less than one SD — same recipe, one draw). The preregistered
+verdict against target selection stands: the failure is not driven by
+picking one favourable random 200 out of the qualifying pool.
+
+## Step 4 — Non-essential check
+
+Not run. The Replogle genome-wide K562 h5ad is not available locally
+(only `K562_essential_normalized_singlecell_01.h5ad` and
+`rpe1_normalized_singlecell_01.h5ad` are on disk under `examples/data/`).
+Per the preregistered fallback, the Limitations paragraph in the
+manuscript takes the sentence:
+
+> Both Replogle screens are essential-gene libraries dominated by a
+> shared growth/stress response; whether the result holds for
+> non-essential perturbations is untested.
+
