@@ -177,25 +177,32 @@ def fig3():
 def fig4():
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.6))
 
-    # PANEL (a): K562 top-200 vs random-200
+    # PANEL (a): K562 random-panel distribution (50 panels of 200 targets)
     ax = axes[0]
-    d = _load("F7_K562_random200.json")
-    d1 = _load("F_nested_cv_rho.json")
-    top_real = d1["datasets"]["K562_essential"]["real_nested_cv"]["rho_pooled"]
-    top_lin = d1["datasets"]["K562_essential"]["linear_truth_matched_alpha_nested_cv"]["rho_mean"]
-    rnd_real = d["real_nested_cv"]["rho_pooled"]
-    rnd_lin = d["linear_truth_matched_alpha_nested_cv"]["rho_mean"]
-    rnd_lin_sd = d["linear_truth_matched_alpha_nested_cv"]["rho_std"]
-    x = np.arange(2); w = 0.35
-    ax.bar(x - w/2, [top_real, rnd_real], w,
-           label="real ρ", color="#3A6EA5", edgecolor="0.2")
-    ax.bar(x + w/2, [top_lin, rnd_lin], w, yerr=[0.003, rnd_lin_sd], capsize=3,
-           label="matched linear", color="#E9967A", edgecolor="0.2")
+    d = _load("F_step3_random_panels.json")
+    reals = np.asarray(d["all_real_rhos"], dtype=float)
+    lins = np.asarray(d["all_lin_truth_rhos"], dtype=float)
+    x_real = 1 + 0.06 * np.random.default_rng(0).standard_normal(len(reals))
+    x_lin = 2 + 0.06 * np.random.default_rng(1).standard_normal(len(lins))
+    ax.scatter(x_real, reals, s=14, color="#3A6EA5", edgecolor="0.2",
+               linewidth=0.4, alpha=0.85, label="real ρ (per panel)")
+    ax.scatter(x_lin, lins, s=14, color="#E9967A", edgecolor="0.2",
+               linewidth=0.4, alpha=0.85, label="matched linear ρ (per panel)")
+    # 5th–95th percentile bands
+    for cx, arr, c in [(1, reals, "#3A6EA5"), (2, lins, "#E9967A")]:
+        p05, p50, p95 = np.percentile(arr, [5, 50, 95])
+        ax.plot([cx - 0.22, cx + 0.22], [p50, p50], color="0.15", lw=1.6, zorder=5)
+        ax.plot([cx, cx], [p05, p95], color="0.15", lw=0.8, zorder=4)
     ax.axhline(1.0, color="k", linestyle="--", lw=0.8)
-    ax.set_xticks(x); ax.set_xticklabels(["top-200 (published)", "random-200"])
-    ax.set_ylim(0, 1.15); ax.set_ylabel("held-out ρ")
-    ax.set_title("(a) K562 target selection")
-    ax.legend(frameon=False, fontsize=8)
+    ax.axhline(0.95, color="0.6", linestyle=":", lw=0.6)
+    ax.set_xticks([1, 2])
+    ax.set_xticklabels(["real ρ", "matched linear ρ"])
+    ax.set_xlim(0.5, 2.5); ax.set_ylim(0, 1.15)
+    ax.set_ylabel("nested-CV ρ")
+    frac = d["fraction_panels_real_rho_below_0_95"]
+    ax.set_title(f"(a) K562 random-panel distribution\n"
+                 f"(N=50 of 200; fraction real ρ < 0.95: {frac:.2f})")
+    ax.legend(frameon=False, fontsize=7)
 
     # PANEL (b): Jost d-sweep
     ax = axes[1]
@@ -340,8 +347,160 @@ def fig_supp():
     print("saved figS1_dose_interp.png (contains both supp panels)")
 
 
+# ─── FIG 6: comparator panel — fixed, footprint, learned × 3 screens ───────
+def fig6():
+    d = _load("F_step1_comparator_panel.json")["screens"]
+    screens = ["K562_essential", "RPE1_essential", "Jost_2020"]
+    labels = ["K562 essential", "RPE1 essential", "Jost 2020"]
+
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6.5))
+
+    # ── row 1: forward direction ─────────────────────────────────────────
+    for j, s in enumerate(screens):
+        ax = axes[0, j]
+        rec = d[s]
+        tm = rec["forward_baseline_train_mean"]["rho_pooled"]
+        tm_sd = rec["forward_baseline_train_mean"]["per_fold_sd"]
+        fixed = rec["forward_fixed"]["rho_pooled"]
+        fixed_sd = rec["forward_fixed"]["per_fold_sd"]
+        foot = rec["forward_footprint"]["rho_pooled"]
+        foot_sd = rec["forward_footprint"]["per_fold_sd"]
+        learn_prog = rec["forward_learned"]["program_space"]["rho_pooled"]
+        learn_prog_sd = rec["forward_learned"]["program_space"]["per_fold_sd"]
+        learn_gene = rec["forward_learned"]["gene_space"]["rho_pooled"]
+        learn_gene_sd = rec["forward_learned"]["gene_space"]["per_fold_sd"]
+        null_p025 = rec["forward_learned_shuffled_null"]["p025"]
+        null_p975 = rec["forward_learned_shuffled_null"]["p975"]
+
+        xs = np.arange(4)
+        vals = [fixed, foot, learn_prog, learn_gene]
+        sds = [fixed_sd, foot_sd, learn_prog_sd, learn_gene_sd]
+        colors = ["#3A6EA5", "#4B8FBF", "#9C6644", "#C08552"]
+        ax.bar(xs, vals, 0.6, yerr=sds, capsize=3,
+               color=colors, edgecolor="0.2")
+
+        # predict-training-mean baseline band (±2 SD)
+        ax.axhspan(tm - 2 * tm_sd, tm + 2 * tm_sd, color="0.85", alpha=0.7,
+                   label=f"train-mean baseline ρ={tm:.3f} ±2SD")
+        ax.axhline(tm, color="0.45", lw=1.0)
+        # predict-zero
+        ax.axhline(1.0, color="k", linestyle="--", lw=0.8, label="predict-zero")
+        # learned shuffled-null 2.5–97.5 band (columns 2–3 only, program+gene)
+        ax.plot([1.6, 3.4], [null_p025, null_p025], color="#7B5A2C",
+                linestyle=":", lw=0.9)
+        ax.plot([1.6, 3.4], [null_p975, null_p975], color="#7B5A2C",
+                linestyle=":", lw=0.9)
+
+        ax.set_xticks(xs)
+        ax.set_xticklabels(["fixed", "foot", "learn\nprog", "learn\ngene"],
+                           fontsize=8)
+        ax.set_ylim(0, 1.15)
+        if j == 0:
+            ax.set_ylabel("ρ_fwd (forward)")
+        ax.set_title(f"{labels[j]}", fontsize=10)
+        if j == 0:
+            ax.legend(frameon=False, fontsize=6.5, loc="lower left")
+
+    # ── row 2: inverse direction ─────────────────────────────────────────
+    for j, s in enumerate(screens):
+        ax = axes[1, j]
+        rec = d[s]
+        tsvd_real = rec["inverse_tsvd_real"]["rho_pooled"]
+        tsvd_sd = rec["inverse_tsvd_real"]["per_fold_sd"]
+        ridge_real = rec["inverse_ridge_real"]["rho_pooled"]
+        ridge_sd = rec["inverse_ridge_real"]["per_fold_sd"]
+        tsvd_lin = rec["inverse_tsvd_matched_linear"]["rho_mean"]
+        tsvd_lin_sd = rec["inverse_tsvd_matched_linear"]["rho_std"]
+        ridge_lin = rec["inverse_ridge_matched_linear"]["rho_mean"]
+        ridge_lin_sd = rec["inverse_ridge_matched_linear"]["rho_std"]
+
+        x = np.arange(2); w = 0.35
+        ax.bar(x - w/2, [tsvd_real, ridge_real], w,
+               yerr=[tsvd_sd, ridge_sd], capsize=3,
+               label="real ρ", color="#3A6EA5", edgecolor="0.2")
+        ax.bar(x + w/2, [tsvd_lin, ridge_lin], w,
+               yerr=[tsvd_lin_sd, ridge_lin_sd], capsize=3,
+               label="matched linear", color="#E9967A", edgecolor="0.2")
+        ax.axhline(1.0, color="k", linestyle="--", lw=0.8)
+        ax.set_xticks(x); ax.set_xticklabels(["TSVD", "Ridge"], fontsize=9)
+        ax.set_ylim(0, 1.15)
+        if j == 0:
+            ax.set_ylabel("ρ (inverse)")
+            ax.legend(frameon=False, fontsize=7)
+
+    fig.suptitle(
+        "Figure 6. Comparator panel — three encodings and two directions.\n"
+        "Top: forward ρ_fwd (fixed, footprint, learned in program and gene space) "
+        "against predict-training-mean baseline band (±2 SD) and predict-zero.\n"
+        "Learned shuffled-embedding null p2.5–p97.5 shown as dotted lines. "
+        "Bottom: inverse ρ under TSVD and Ridge, real vs matched linear truth.",
+        fontsize=8, y=1.03)
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "fig6_comparator_panel.png", bbox_inches="tight")
+    plt.close(fig)
+    print("saved fig6_comparator_panel.png")
+
+
+# ─── SUPP: Step 2 positive-control ensembles at matched amplitude ──────────
+def fig_supp_ensembles():
+    d = _load("F_step2_ensembles.json")["screens"]
+    screens = ["K562_essential", "RPE1_essential", "Jost_2020"]
+    labels = ["K562 essential", "RPE1 essential", "Jost 2020"]
+    ensembles = ["dense", "sparse_10", "sparse_2", "rank_5", "block_modular"]
+    ens_names = ["dense", "sparse-10%", "sparse-2%", "rank-5", "block-mod"]
+
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6.2))
+
+    # row 1: linear-truth nested-CV ρ vs predict-zero across ensembles
+    for j, s in enumerate(screens):
+        ax = axes[0, j]
+        rec = d[s]["ensembles"]
+        vals = [rec[e]["linear_truth_nested_cv_rho_mean"] for e in ensembles]
+        sds = [rec[e]["linear_truth_nested_cv_rho_std"] for e in ensembles]
+        xs = np.arange(len(ensembles))
+        ax.bar(xs, vals, 0.6, yerr=sds, capsize=3,
+               color="#E9967A", edgecolor="0.2")
+        ax.axhline(1.0, color="k", linestyle="--", lw=0.8)
+        ax.set_xticks(xs); ax.set_xticklabels(ens_names, rotation=25, fontsize=8)
+        ax.set_ylim(0, 1.15)
+        if j == 0:
+            ax.set_ylabel("linear-truth nested-CV ρ")
+        ax.set_title(f"{labels[j]}", fontsize=10)
+
+    # row 2: interaction-only cosine vs cross-replicate null
+    for j, s in enumerate(screens):
+        ax = axes[1, j]
+        rec = d[s]["ensembles"]
+        cos_vals = [rec[e]["interaction_only_cos_mean"] for e in ensembles]
+        cos_sds = [rec[e]["interaction_only_cos_std"] for e in ensembles]
+        null_vals = [rec[e]["interaction_only_null_mean"] for e in ensembles]
+        null_sds = [rec[e]["interaction_only_null_std"] for e in ensembles]
+        xs = np.arange(len(ensembles)); w = 0.35
+        ax.bar(xs - w/2, cos_vals, w, yerr=cos_sds, capsize=3,
+               label="interaction-only cos", color="#3A6EA5", edgecolor="0.2")
+        ax.bar(xs + w/2, null_vals, w, yerr=null_sds, capsize=3,
+               label="cross-replicate null", color="0.75", edgecolor="0.2")
+        ax.axhline(0.0, color="k", linestyle="--", lw=0.6)
+        ax.set_xticks(xs); ax.set_xticklabels(ens_names, rotation=25, fontsize=8)
+        ax.set_ylim(-0.15, 1.05)
+        if j == 0:
+            ax.set_ylabel("cosine")
+            ax.legend(frameon=False, fontsize=7)
+
+    fig.suptitle(
+        "Supplementary Figure S2. Positive-control ensembles at matched SNR.\n"
+        "Top: linear-truth nested-CV ρ per (screen × ensemble); all cells beat "
+        "predict-zero (ρ<1). Bottom: interaction-only Frobenius cosine vs "
+        "cross-replicate paired null.",
+        fontsize=8, y=1.02)
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "figS2_ensembles.png", bbox_inches="tight")
+    plt.close(fig)
+    print("saved figS2_ensembles.png")
+
+
 def main():
-    fig1(); fig2(); fig3(); fig4(); fig5(); fig_supp()
+    fig1(); fig2(); fig3(); fig4(); fig5(); fig6(); fig_supp(); fig_supp_ensembles()
     print("\nAll figures saved to", OUT_DIR)
 
 
