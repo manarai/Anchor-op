@@ -22,9 +22,8 @@ venv/
 .ipynb_checkpoints/
 *.nbconvert.ipynb
 
-# Large local single-cell data and derived public-data results
+# Large local single-cell data
 /data/
-/results/
 *.h5ad
 *.h5
 *.loom
@@ -32,7 +31,16 @@ venv/
 *.mtx.gz
 /examples/data/
 /cache/
-*.pkl
+
+# Results directory: we track the measurement pkls (reproduction scripts
+# load them) and the recheck JSON evidence, but ignore anything else that
+# lands in there ad hoc — new large outputs from re-runs, temporary
+# fixtures, etc.
+/results/*
+!/results/*.pkl
+!/results/*.csv
+!/results/recheck/
+!/results/recheck/**
 
 
 
