@@ -151,3 +151,11 @@ RPE1 direction-only nested-CV linear-truth rho,0.78,MANUSCRIPT §2.3 & abstract,
 Jost direction-only nested-CV linear-truth rho,0.79,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,mean 0.7882 SD 0.0299 N=15
 K562 matched linear-truth rel_diff SD,0.01,MANUSCRIPT §2.5,derivation from N=15 side-run 2026-09-27,reproduction/43-style side-compute,mean 0.331 SD 0.013 N=15
 RPE1 matched linear-truth rel_diff SD,0.02,MANUSCRIPT §2.5,derivation from N=15 side-run 2026-09-27,reproduction/43-style side-compute,mean 0.986 SD 0.023 N=15
+K562 top-200 footprint nested-CV rho,0.81,MANUSCRIPT §2.6 Table 3 & abstract,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,pooled 0.8113; preregistered 2026-09-27
+K562 top-200 footprint shuffled-null 2.5pct,0.97,MANUSCRIPT §2.6 Table 3 & abstract,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,N=100 permutations
+K562 random-200 footprint nested-CV rho,1.00,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,pooled 1.0004
+K562 random-200 footprint shuffled-null 2.5pct,0.99,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,
+RPE1 footprint nested-CV rho,1.00,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,pooled 0.9987
+RPE1 footprint shuffled-null 2.5pct,0.98,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,
+Jost footprint nested-CV rho,1.00,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,pooled 0.9979
+Jost footprint shuffled-null 2.5pct,0.98,MANUSCRIPT §2.6 Table 3,results/recheck/F_footprint.json,reproduction/45_footprint_encoding.py,

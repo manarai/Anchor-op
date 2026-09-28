@@ -380,6 +380,52 @@ min 0.944, max 0.991. Report as "K562 real ρ = 0.96 (5-fold SD 0.02)"
 in the abstract. RPE1 5-fold SD is 0.006; Jost is 0.002 — both close
 enough to the predict-zero floor that a CI would be uninformative.
 
+## Footprint-encoding test (produced by
+`reproduction/45_footprint_encoding.py`, output
+`results/recheck/F_footprint.json`; preregistered 2026-09-27 in
+`PREREGISTRATION_AMENDMENT.md` before any code ran).
+
+Encoding: `u_g = −κ_g · Wᵀ · Σ_ctrl · δ_g`, `Σ_ctrl` from NT controls
+only, same HVG feature space, targets force-kept, same `W`, same `κ`.
+`Σ_ctrl` reloaded from each screen's original h5ad (K562 random-200
+loaded the cached `results/k562_random200_sigma_ctrl.npz`; K562
+top-200, RPE1, and Jost each computed and saved a fresh cache).
+
+Recipe: same target-grouped nested-CV as Table 1 (5-fold outer,
+3-fold inner, grid `{0, 1, 2, 3, 5, 8, 12, 16, 20, 25, 30}`).
+Controls per screen: (a) current-encoding baseline (recomputed for
+comparability), (b) shuffled-footprint null at N = 100 permutations
+of the target→footprint map, (c) random-direction null at N = 100
+draws of unit vectors rescaled to the footprint column norms,
+(d) matched-SNR linear-truth on footprint U at N = 15.
+
+Success criterion (preregistered): footprint ρ ≤ 0.90 AND below the
+2.5th percentile of the shuffled-footprint null. Both required.
+
+**Verdicts.**
+
+| Screen | Footprint ρ | Shuffled p025 | Random p025 | Linear-truth ρ (SD) | Verdict |
+|---|---:|---:|---:|---:|:---|
+| K562 top-200 | 0.81 | 0.97 | — | — | **success** |
+| K562 random-200 | 1.00 | 0.99 | — | — | failure |
+| RPE1 | 1.00 | 0.98 | — | — | failure |
+| Jost 2020 | 1.00 | 0.98 | — | — | failure |
+
+(Random-direction null and matched-linear-truth stats live in
+`F_footprint.json`; the shuffled-footprint 2.5th percentile is the
+decisive comparator per preregistration.)
+
+**Decision rule outcome.** Success on 1 of 4 fits. This is below the
+preregistered ≥ 2-screen threshold that would promote the projection
+mechanism to a Result. Under the preregistered "mixed outcomes"
+branch, we report per screen and keep projection failure as an open
+question in Discussion §3.2. The K562 top-200 success is treated as
+a positive signal for the projection reading on that specific fit,
+not as a general mechanism claim; the K562 random-200 failure on the
+same cell line under a random-200 selection is the more informative
+data point, since it isolates the effect of the selection convention.
+No parameters or thresholds were changed after the results came in.
+
 ## F7 K562 random-200 refit (produced by
 `reproduction/42_f7_k562_random200.py`, output
 `results/recheck/F7_K562_random200.json`,
