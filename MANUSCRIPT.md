@@ -1,5 +1,10 @@
 # Additive-input encoding fails target-held-out prediction on current Perturb-seq screens
 
+**Dalton Kutzen**¹, **Sam Green**¹, **Tommy W. Terooatea**¹*
+
+¹Brigham Young University, Provo, UT, USA. *[affiliation details to be confirmed]*
+\*Corresponding author.
+
 ---
 
 ## Abstract
@@ -103,7 +108,7 @@ Two candidate mechanisms are consistent with the data, and neither is decided by
 
 A footprint encoding rewrites the input and tests projection. A within-target concordance diagnostic tests the direction assumption. Both are cheap; neither was required to establish the primary claim.
 
-Recent benchmarks of perturbation-prediction methods on Perturb-seq screens have found that context-free baselines — predicting a population mean or a nearest-neighbour response — can match or exceed more complex generative models under held-out evaluation [6]. Our result places that finding earlier in the pipeline: at the encoding stage. If the additive-input encoding does not carry target-specific signal in a form the linear settled-state fit can exploit, no downstream generative choice sitting on top of the same encoding can rescue it. The alternative encodings named in this section are the first place to look; a benchmarking effort that swaps only the encoding while holding the model class fixed would isolate the effect cleanly.
+A recent benchmark found that a simple linear model predicts unseen single-gene perturbations in Replogle-type screens about as well as current deep-learning models [6]. That model is linear, but it encodes each perturbation through gene embeddings learned from the training responses rather than through the target's loading on a fixed program basis. Taken together with our result, this points toward the encoding rather than linearity as the binding constraint: a linear map can predict held-out perturbations in these data when the input is represented well. The footprint encoding above is the direct test of that reading within this framework.
 
 ### 3.3 Limitations
 
@@ -111,7 +116,7 @@ The result concerns three screens, one encoding class, and one estimator family.
 
 Two per-screen caveats. Replogle-essential libraries retain one sgRNA per target after the released aggregation step, so within-target replicate diagnostics do not apply to them. Jost has 25 targets, small enough that a target-held-out CV places most of the design outside the training set and the fit sits close to under-determined at d = 30; the d-sweep controls for this at d = 5 but does not turn Jost into a general genome-scale test. Cross-screen quantitative comparison of specific ρ values requires care because per-cell noise structure differs across cell lines.
 
-The additive-input model itself is a modelling choice. CRISPRi is closer to a clamp on target transcript than to an additive forcing term. Under a program-space clamp with orthonormal `W` and a rank-deficient `J_gene = W·J_prog·Wᵀ`, the intervention model is exactly under-identified from projected observations. This is a valid algebraic result under those assumptions rather than a general impossibility; alternative encoder/decoder conventions or explicit gene-space dynamics can change the conclusion. The CRISPRi assay also masks promoter-level heterogeneity that a targeted-promoter design would separate [7]; the additive-input encoding assumes a single input direction per target and does not distinguish alternative-promoter isoforms.
+The additive-input model itself is a modelling choice. CRISPRi is closer to a clamp on target transcript than to an additive forcing term. Under a program-space clamp with orthonormal `W` and a rank-deficient `J_gene = W·J_prog·Wᵀ`, the intervention model is exactly under-identified from projected observations. This is a valid algebraic result under those assumptions rather than a general impossibility; alternative encoder/decoder conventions or explicit gene-space dynamics can change the conclusion. CRISPRi is often promoter-specific, and untargeted alternative promoters can compensate [7], so a knockdown efficiency measured for one transcript may misstate the effective input; the additive-input encoding assumes one input direction per target.
 
 We report every real held-out ρ with its across-outer-fold standard deviation and every simulated positive-control ρ with its cross-replicate standard deviation. Interpretation carries the same reservation: held-out ρ on a real Perturb-seq screen is the quantity that a matched-SNR linear-truth positive control makes calibrated.
 
@@ -197,6 +202,6 @@ The authors declare no competing interests.
 
 [5] Tegnér J, Yeung MKS, Hasty J, Collins JJ (2003) Reverse engineering gene networks: Integrating genetic perturbations with dynamical modeling. *Proc. Natl. Acad. Sci. USA* 100(10):5944–5949. doi:10.1073/pnas.0933416100
 
-[6] Ahlmann-Eltze C, Huber W, Anders S (2025) Deep-learning-based gene perturbation effect prediction does not yet outperform simple linear methods. *Nature Methods*, in press.
+[6] Ahlmann-Eltze C, Huber W, Anders S (2025) Deep-learning-based gene perturbation effect prediction does not yet outperform simple linear baselines. *Nature Methods* 22(8):1657–1661. doi:10.1038/s41592-025-02772-6
 
-[7] King EM, Xie L, Lin S-P, et al. (2026) Alternative promoter usage in single-cell CRISPRi screens. *Nucleic Acids Research*, in press.
+[7] King HE, O'Connell S, Kavanagh D, et al. (2026) Isoform-specific single-cell perturb-seq reveals distinct functions of alternative promoters in drug response. *Nucleic Acids Research* 54(4):gkag118. doi:10.1093/nar/gkag118
