@@ -142,3 +142,12 @@ Jost noise-free per-column response norm,0.05,MANUSCRIPT §2.5,results/recheck/F
 Jost condition retained-S at rank_tol=1e-2 at published amplitude,3.4,MANUSCRIPT §2.5,derivation from F5 investigation in RECHECK_LOG.md,reproduction/33_recheck_F5_jost_rank.py,report.condition_number on noisy S at sigma=0.036
 Jost condition noise-free S rank_tol=1e-2,65,MANUSCRIPT §2.5,derivation from F5 investigation in RECHECK_LOG.md,reproduction/33_recheck_F5_jost_rank.py,noise-free cond(S) rank_tol=1e-2 = 65.2
 Jost condition U alone rank_tol=1e-2,75,MANUSCRIPT §2.5,derivation from F5 investigation in RECHECK_LOG.md,reproduction/33_recheck_F5_jost_rank.py,cond(U) rank_tol=1e-2 = 75.4
+K562 direction-only nested-CV real rho,0.97,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,pooled 0.9740 5-fold SD 0.007
+K562 direction-only nested-CV real rho 5-fold SD,0.007,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,per_fold_sd
+RPE1 direction-only nested-CV real rho,1.00,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,pooled 0.9987 SD 0.0018
+Jost direction-only nested-CV real rho,0.99,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,pooled 0.9932 SD 0.0169
+K562 direction-only nested-CV linear-truth rho,0.43,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,mean 0.4312 SD 0.0184 N=15
+RPE1 direction-only nested-CV linear-truth rho,0.78,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,mean 0.7756 SD 0.0130 N=15
+Jost direction-only nested-CV linear-truth rho,0.79,MANUSCRIPT §2.3 & abstract,results/recheck/F_nested_cv_direction_only.json,reproduction/44_nested_cv_direction_only.py,mean 0.7882 SD 0.0299 N=15
+K562 matched linear-truth rel_diff SD,0.01,MANUSCRIPT §2.5,derivation from N=15 side-run 2026-09-27,reproduction/43-style side-compute,mean 0.331 SD 0.013 N=15
+RPE1 matched linear-truth rel_diff SD,0.02,MANUSCRIPT §2.5,derivation from N=15 side-run 2026-09-27,reproduction/43-style side-compute,mean 0.986 SD 0.023 N=15

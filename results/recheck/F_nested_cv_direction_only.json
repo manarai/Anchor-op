@@ -1,0 +1,94 @@
+{
+  "seed": 20260927,
+  "n_outer": 5,
+  "n_inner": 3,
+  "rank_grid": [
+    0,
+    1,
+    2,
+    3,
+    5,
+    8,
+    12,
+    16,
+    20,
+    25,
+    30
+  ],
+  "n_reps_lin_sim": 15,
+  "note": "Direction-only nested-CV: column-normalize S and U per guide, then run the same target-grouped nested-CV recipe as script 40.",
+  "datasets": {
+    "K562_essential": {
+      "n_sgRNA_used": 188,
+      "n_targets": 188,
+      "sigma": 0.24,
+      "alpha_S": 369.0,
+      "real_nested_cv_direction_only": {
+        "rho_pooled": 0.9739542984056907,
+        "picked_rank_median": 3,
+        "per_fold_rho": [
+          0.9809576560156705,
+          0.9667091954448551,
+          0.9676893318263634,
+          0.9800260692176739,
+          0.9744718028811741
+        ],
+        "per_fold_sd": 0.006669355090641483
+      },
+      "linear_truth_matched_alpha_nested_cv_direction_only": {
+        "n_reps": 15,
+        "rho_mean": 0.4311535736334177,
+        "rho_std": 0.018414881370691034,
+        "picked_rank_median_across_reps": 30
+      }
+    },
+    "RPE1_essential": {
+      "n_sgRNA_used": 153,
+      "n_targets": 153,
+      "sigma": 0.352,
+      "alpha_S": 199.0,
+      "real_nested_cv_direction_only": {
+        "rho_pooled": 0.9987471185893955,
+        "picked_rank_median": 1,
+        "per_fold_rho": [
+          0.9963475784382909,
+          1.0,
+          0.997332255723855,
+          1.0,
+          1.0001345670772739
+        ],
+        "per_fold_sd": 0.001790448594643929
+      },
+      "linear_truth_matched_alpha_nested_cv_direction_only": {
+        "n_reps": 15,
+        "rho_mean": 0.7756097061265924,
+        "rho_std": 0.013025519761357202,
+        "picked_rank_median_across_reps": 25
+      }
+    },
+    "Jost_2020": {
+      "n_sgRNA_used": 122,
+      "n_targets": 25,
+      "sigma": 0.066,
+      "alpha_S": 29.6,
+      "real_nested_cv_direction_only": {
+        "rho_pooled": 0.9931702383855955,
+        "picked_rank_median": 1,
+        "per_fold_rho": [
+          1.0,
+          0.9631561690653192,
+          0.9987708056983751,
+          0.9999999999999999,
+          1.004120487766964
+        ],
+        "per_fold_sd": 0.016921895992254958
+      },
+      "linear_truth_matched_alpha_nested_cv_direction_only": {
+        "n_reps": 15,
+        "rho_mean": 0.788240655054706,
+        "rho_std": 0.029941301300735232,
+        "picked_rank_median_across_reps": 12
+      }
+    }
+  }
+}

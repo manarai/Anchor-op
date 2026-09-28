@@ -1,14 +1,10 @@
-# Additive-input encoding fails target-held-out prediction on genome-scale Perturb-seq screens
-
-**Authors.** *TO BE FILLED IN BEFORE SUBMISSION.*
-**Affiliations.** *TO BE FILLED IN BEFORE SUBMISSION.*
-**Corresponding author.** *TO BE FILLED IN BEFORE SUBMISSION.*
+# Additive-input encoding fails target-held-out prediction on current Perturb-seq screens
 
 ---
 
 ## Abstract
 
-Pooled Perturb-seq screens measure how cells respond to hundreds of genetic knockdowns, and a common modeling step reads these responses through a linear settled-state model with an additive input for each perturbed gene. Under that model the response operator is identifiable in closed form, `J·P_X = −U·S⁺`. We tested whether it predicts held-out perturbations in three screens: Replogle K562 and RPE1 essential-gene screens, and the titrated Jost 2020 screen. We used target-held-out prediction with nested cross-validation and compared each screen against a positive control, a linear ground truth simulated at the same signal-to-noise ratio, inputs and noise. The model failed on all three. Held-out error stayed at the predict-zero baseline (ρ = 0.96 with 5-fold standard deviation 0.02; 1.00 with SD 0.006; 1.00 with SD 0.002 for K562, RPE1, and Jost at d = 30), while the matched linear truth reached 0.18, 0.53, and 0.72. The failure persists when targets are sampled at random (K562 real ρ = 1.00, SD 0.009 vs matched linear 0.43), when input dimension is reduced so the problem is well overdetermined (Jost d = 5 real ρ = 1.01 vs matched linear 0.32), and when perturbation strength is removed from the fit by column-normalizing the design, so mis-estimated knockdown efficiency cannot explain it. It is also not a noise problem: at the observed signal amplitude, the same estimator recovers a known operator's interactions (interaction-only Frobenius cosine 0.98 [K562] and 0.74 [RPE1] against a shift-1 cross-replicate null near zero). On Jost's titrated design the model partly interpolates dose along known target directions (guide-level ρ = 0.66 against 0.22 for the matched linear-truth control on the same folds). Whether the failure comes from projecting targets onto expression programs or from nonlinear dose responses remains open. anchor-op releases the matched controls and an identifiability gate that checks the rank of the inputs as well as the responses.
+Pooled Perturb-seq screens measure how cells respond to hundreds of genetic knockdowns; a common modeling step reads these responses through a linear settled-state model with an additive input per perturbed gene. Under that model the response operator is identifiable in closed form as `J·P_X = −U·S⁺`. We tested whether it predicts held-out perturbations in three screens — Replogle K562 essential, Replogle RPE1 essential, and the titrated Jost 2020 screen — using target-held-out prediction with nested cross-validation against a matched-SNR linear-truth positive control on the same inputs and noise. The model failed on all three: held-out ρ stayed at the predict-zero baseline (K562 0.96, 5-fold SD 0.02; RPE1 1.00, SD 0.006; Jost 1.00, SD 0.002 at d = 30) while the matched linear truth reached 0.18, 0.53, and 0.72. The failure survives sampling targets at random (K562 real 1.00 vs matched 0.43), reducing input dimension to a comfortably overdetermined regime (Jost d = 5 real 1.01 vs matched 0.32), and column-normalizing the design (K562 0.97 vs 0.43; RPE1 1.00 vs 0.78; Jost 0.99 vs 0.79), so mis-estimated knockdown efficiency cannot explain it. It is not a noise problem either: at the observed signal amplitude the same estimator recovers a known operator's interactions (interaction-only cosine 0.98 on K562 and 0.74 on RPE1 against a cross-replicate null near zero). On Jost's titrated design the pipeline partly interpolates dose along known target directions (guide-level ρ = 0.66 vs matched control 0.22). Whether the failure reflects projecting targets onto expression programs or nonlinear dose responses remains open.
 
 ---
 
@@ -16,9 +12,9 @@ Pooled Perturb-seq screens measure how cells respond to hundreds of genetic knoc
 
 Pooled Perturb-seq screens deliver an intervention→response map at genome scale by pairing CRISPR-based perturbations with single-cell RNA-seq [1]. A common modeling step reads these responses through a linear settled-state model of regulatory dynamics: knocking down gene *g* at efficiency `κ_g` shifts program-space state by `Δz_g = −J⁻¹u_g`, where the perturbation input is `u_g = −κ_g Wᵀδ_g`, with `W` a control-derived program basis and `δ_g` a one-hot on gene *g*. Under this additive-input steady-state assumption, stacking guides gives a sensitivity matrix `S = −J⁻¹U`, and regularized inversion returns the operator's action on the identified response subspace, `J·P_X = −U·S⁺` with `X = range(S)`. Because this action is closed-form, the pipeline that computes it can be run on any Perturb-seq screen with a defined program basis and a calibrated efficiency estimator.
 
-Work in this area has focused on whether the linear-response assumption holds and how many cells per guide might suffice to establish it. Both are secondary. The primary question is whether the fit predicts held-out perturbations. Answering it requires a fold-honest evaluation: fit `A = −U·S⁺` on training guides, predict `U_test = −A·S_test` on held-out guides, and compare the resulting held-out ρ to a positive control that runs the same procedure on a linear ground truth simulated at the dataset's own guide inputs, efficiency, and per-entry noise. Under any additive-input linear model the positive control must beat the predict-zero baseline of ρ = 1; otherwise the identifiability calculation is not informative on the data at hand.
+Steady-state perturbation inference has a lineage in the systems-biology literature that predates Perturb-seq: modular response analysis and reverse-engineering methods reconstruct network structure from small numbers of steady-state perturbations under an assumed linear response [3–5]. Recent benchmarking of perturbation-prediction methods on Perturb-seq screens has separately found that simple context-free baselines can match or exceed the more complex generative models under held-out evaluation [6]. Neither line has directly asked whether the additive-input encoding studied here predicts held-out perturbations on the screens it is fit on. Answering that requires a fold-honest evaluation: fit `A = −U·S⁺` on training guides, predict `U_test = −A·S_test` on held-out guides, and compare the resulting held-out ρ to a positive control that runs the same procedure on a linear ground truth simulated at the dataset's own guide inputs, efficiency, and per-entry noise. Under any additive-input linear model the positive control must beat the predict-zero baseline of ρ = 1; otherwise the identifiability calculation is not informative on the data at hand.
 
-We ran that control on three current Perturb-seq screens: the essential-gene libraries in Replogle et al. 2022 (K562 and RPE1 lines) [1] and the titrated dose-response library in Jost et al. 2020 [2]. On all three, the fitted encoding fails to beat the predict-zero baseline on held-out prediction, while the matched-SNR linear-truth control does. The failure is not a noise-level artifact: at the observed signal amplitude the same estimator on a linear ground truth cleanly recovers the interaction structure of the operator. It is not created by the widely used convention of selecting the 200 targets with the most cells: a random-200 K562 refit reproduces the failure. It is not created by identifiability under-determination on Jost's smaller target set: a d-sweep truncating the coordinate system to a comfortably overdetermined regime leaves real held-out ρ at the predict-zero floor. And it is not created by mis-scaling of the perturbation-strength estimate: column-normalizing the design before the fit removes all per-guide scale that a κ error could carry, and held-out ρ does not fall on any of the three screens.
+We ran that control on three current Perturb-seq screens: the essential-gene libraries in Replogle et al. 2022 (K562 and RPE1 lines) [1] and the titrated dose-response library in Jost et al. 2020 [2]. On all three, the fitted encoding fails to beat the predict-zero baseline on held-out prediction, while the matched-SNR linear-truth control does. The failure is not a noise-level artifact: at the observed signal amplitude the same estimator on a linear ground truth cleanly recovers the interaction structure of the operator. It is not created by the widely used convention of selecting the 200 targets with the most cells: a random-200 K562 refit reproduces the failure. It is not created by identifiability under-determination on Jost's smaller target set: a d-sweep truncating the coordinate system to a comfortably overdetermined regime leaves real held-out ρ at the predict-zero floor. And it is not created by mis-scaling of the perturbation-strength estimate: column-normalizing the design before the fit removes all per-guide scale that a κ error could carry, and held-out ρ under the same nested cross-validation stays at the predict-zero baseline on all three screens (0.97, 1.00, 0.99) while the matched linear truth reaches 0.43, 0.78, and 0.79.
 
 Two candidate explanations remain live. Under the additive-input encoding, projecting the target-direction one-hot onto d = 30 control-derived programs leaves ~99% of the target direction outside the retained subspace, so the encoded input may carry little of the response-relevant signal — a *projection* failure. Independently, the linear settled-state assumption may be the wrong shape for saturating or threshold-dominated dose responses that govern actual regulatory dynamics — a *dose* failure. We describe the tests that would distinguish them and leave both to future work.
 
@@ -34,9 +30,9 @@ Two subsidiary correctness issues bear on any tool in this space and are handled
 
 For each screen we fit the additive-input operator `A = −U·S⁺` using truncated SVD, with the retained rank chosen by nested cross-validation inside each outer training fold (Methods). Both outer and inner folds are target-grouped, so no sibling sgRNA leaks between train and test. The rank grid includes zero, which represents the predict-zero baseline `A ≡ 0` and gives held-out ρ = 1 exactly; nested CV therefore selects "shrink to zero" whenever the fitted model does worse than predict-zero on inner validation.
 
-We report pooled held-out ρ with its across-outer-fold standard deviation on the real data, and mean ± SD across 15 independent matched-SNR linear-truth simulations. Table 1 summarizes the result on the three screens as originally released.
+We report pooled held-out ρ with its across-outer-fold standard deviation on the real data, and mean ± SD across 15 independent matched-SNR linear-truth simulations. Table 1 summarizes.
 
-**Table 1. Target-held-out held-out ρ under nested cross-validation.**
+**Table 1. Target-held-out ρ under nested cross-validation.**
 
 | Screen (n retained sgRNAs / n targets) | Real ρ (5-fold SD) | Median picked TSVD rank | Matched linear-truth ρ (mean, SD; N = 15) |
 |---|---:|---:|---:|
@@ -52,7 +48,7 @@ The three screens differ in library size and design. Replogle-essential librarie
 
 At the amplitude of the released simulation ensemble the noise-free response is much smaller than the observed response — a factor of ~360 on K562 by median column norm. At that amplitude the signal-to-noise ratio is low and any TSVD estimator, linear-truth or not, has almost no chance of recovering the operator. A signal-scale sweep varying the multiplier `α_S` on the noise-free response confirms this and identifies the α_S that reproduces the observed median column norm of `S`.
 
-At the data-matched amplitude the same TSVD estimator on a linear ground truth cleanly recovers the operator: full-matrix Frobenius cosine 0.99 (K562) and 0.91 (RPE1) at N = 200 replicates. Those full-matrix cosines are dominated by the shared diagonal shift carried by every replicate in the ensemble; their shift-1 cross-replicate null is around 0.70. The *interaction-only* cosine — computed after subtracting the diagonal from both `A` and `J` — isolates the recoverable structure. It reaches 0.98 (SD 0.003) on K562 and 0.74 (SD 0.023) on RPE1 at matched amplitude, against a shift-1 cross-replicate null of 0.003 in both cases (N = 200).
+At the data-matched amplitude the same TSVD estimator on a linear ground truth cleanly recovers the operator: full-matrix Frobenius cosine 0.99 (K562) and 0.91 (RPE1) at N = 200 replicates. Those full-matrix cosines are dominated by the shared diagonal shift carried by every replicate in the ensemble; their cross-replicate null is around 0.70. The *interaction-only* cosine — computed after subtracting the diagonal from both `A` and `J` — isolates the recoverable structure. It reaches 0.98 (SD 0.003) on K562 and 0.74 (SD 0.023) on RPE1 at matched amplitude, against a cross-replicate null of 0.003 in both cases (N = 200).
 
 The estimator can recover a known operator's interactions at the signal amplitude of the observed response. The gap between "an estimator that recovers a linear operator's interactions at matched SNR" and "an estimator that fails held-out prediction on real data at the same SNR" is the point. Under the additive-input encoding, the model fits `A` and predicts `U = −A·S` on held-out guides. On the linear-truth positive control that prediction succeeds; on the real data it does not. The failure lies somewhere between the data-generating process and the additive-input model, not in the fitting machinery.
 
@@ -73,9 +69,9 @@ The estimator can recover a known operator's interactions at the signal amplitud
 | 25 | 1.00 | 1 | 0.69 (0.037) | underdetermined |
 | 30 | 1.00 | 0 | 0.73 (0.043) | underdetermined |
 
-At d = 5 the identifiability regime is comfortably overdetermined and the matched linear truth reaches its cleanest ρ (0.32), yet real Jost ρ is 1.01. The encoding fails independent of the identifiability regime.
+At d = 5, where the identifiability regime is comfortably overdetermined, the matched linear-truth ρ is 0.32 while real Jost ρ is 1.01. The matched linear-truth ρ varies non-monotonically with d — from 0.32 at d = 5 to 0.85 at d = 10 — because α_S is recomputed at each d and different truncations of the coordinate system carry different fractions of the observed response amplitude; but it stays below the real ρ at every d, so the encoding fails independent of the identifiability regime.
 
-**κ mis-scaling.** The Replogle-essential pipeline uses a residual-space `detection_rate` proxy for κ (Methods), which is a signed distributional-shift statistic rather than a fractional-knockdown estimate. If mis-scaled per-guide κ were the source of the failure, column-normalizing S and U before the fit — which removes all per-guide scale from the fitting problem — should improve held-out ρ. It does not. On Replogle the transform barely moves ρ: baseline ρ = 1.11 → 1.09 on K562 (Δρ = −0.03) and 1.21 → 1.13 on RPE1 (Δρ = −0.08). Column-normalizing a matched linear-truth control on the same design gives ρ ≈ 0.17 on both, so the direction-only estimator itself is not the source of the ρ ≈ 1 outcome. On Jost the same transform *worsens* the direction-only ρ, which means Jost's count-based κ carries real scale information the transform discards. κ quality differs qualitatively between the two designs — Replogle's residual-space proxy is uninformative; Jost's count-based `mean_ratio` is informative — but κ mis-scaling cannot on its own account for the encoding's failure on either.
+**κ mis-scaling.** The Replogle-essential pipeline uses a residual-space `detection_rate` proxy for κ (Methods), which is a signed distributional-shift statistic rather than a fractional-knockdown estimate. If mis-scaled per-guide κ were the source of the failure, column-normalizing S and U before the fit — which removes all per-guide scale from the fitting problem — should improve held-out ρ. It does not. Under the same target-grouped nested cross-validation, direction-only real ρ is 0.97 (5-fold SD 0.007) on K562, 1.00 (SD 0.002) on RPE1, and 0.99 (SD 0.017) on Jost. The matched linear-truth control on the same column-normalized design reaches 0.43 (SD 0.018) on K562, 0.78 (SD 0.013) on RPE1, and 0.79 (SD 0.030) on Jost, all well below the predict-zero baseline. Column-normalizing raises the matched-linear ρ on RPE1 and Jost — the transform discards real per-guide scale information those screens' κ estimators carry (Replogle-essential's residual-space proxy is uninformative in this regard; Jost's count-based `mean_ratio` is informative) — but κ mis-scaling cannot on its own account for the encoding's failure on any of the three screens.
 
 ### 2.4 The pipeline captures within-target dose interpolation on Jost
 
@@ -83,15 +79,11 @@ Jost 2020 pairs each of its 25 targets with 3–6 sgRNAs at graded activities. U
 
 Two things follow. The pipeline does capture within-target amplitude structure when a target's direction is available: 0.66 is meaningfully below the predict-zero baseline of 1 and well above the null. But the amplitude the pipeline captures is not operator recovery. Under any additive-input linear model, every guide for one target moves the system along the same direction — `κ_g` rescales columns, `Wᵀδ_g` is fixed — and the guide-level fold split reduces the prediction task to one that a per-target one-parameter fit could pass. We label the guide-level Jost result "within-target dose interpolation along a known target direction" and keep it separate from the target-held-out claim that governs the main result.
 
-### 2.5 Two commonly used diagnostics are uncalibrated at these signal-to-noise ratios
+### 2.5 A widely used linearity threshold is uncalibrated at these signal-to-noise ratios
 
-Two summary diagnostics widely used with additive-input pipelines are not calibrated to the noise levels of current Perturb-seq screens.
+The `rel_diff` statistic splits guides at the median efficiency, fits an operator per half, and returns the Frobenius-normalized difference on the shared identified subspace. A prespecified threshold `rel_diff ≤ 0.25` was chosen at preregistration to declare the additive-input model consistent with the data. Real data on Replogle gives `rel_diff` = 1.47 (K562) and 1.57 (RPE1); on Jost it is 1.26. Every screen fails the threshold. But so does a matched linear ground truth at each screen's own signal amplitude and noise: 0.33 (SD 0.01) on K562, 0.98 (SD 0.02) on RPE1, and 1.05 (SD 0.03) on Jost (N = 15). On RPE1 and Jost even a perfectly linear generator fails the 0.25 threshold; only on K562 does it drop below 1.0. The threshold cannot separate a linear model from a nonlinear one at these signal-to-noise ratios regardless of ground truth. It is miscalibrated. The calibrated comparison — real vs matched linear truth at each screen's own SNR — corroborates the target-held-out failure on all three: real `rel_diff` exceeds matched linear-truth `rel_diff` by ~1.14 (K562), ~0.59 (RPE1), and ~0.21 (Jost, about 7 linear-truth SDs above the matched-control mean).
 
-**A bin-split linearity threshold.** The `rel_diff` statistic splits guides at the median efficiency, fits an operator per half, and returns the Frobenius-normalized difference on the shared identified subspace. A prespecified threshold `rel_diff ≤ 0.25` was chosen at preregistration to declare the additive-input model consistent with the data. Real data on Replogle gives `rel_diff` = 1.47 (K562) and 1.57 (RPE1); on Jost it is 1.26. Every screen fails the threshold. But so does a matched linear ground truth at each screen's own signal amplitude and noise: 0.33 on K562, 0.98 on RPE1, and 1.05 (SD 0.03) on Jost. On RPE1 and Jost even a perfectly linear generator fails the 0.25 threshold; only on K562 does it drop below 1.0. The threshold cannot separate a linear model from a nonlinear one at these signal-to-noise ratios regardless of ground truth. Under the target-held-out nested-CV comparison in §2.1 the linear truth reaches ρ well below 1 on all three screens; the diagnostic failure is a threshold-calibration issue, not a data verdict.
-
-**A single-scalar condition number.** A common summary of an additive-input measurement is the condition number of the retained response matrix under the preregistered `rank_tol = 1×10⁻²`. On Jost this number is small (~3.4) at the screen's own noise, which reads as "well-conditioned" and would ordinarily support downstream operator interpretation. It is misleading. At Jost's per-sgRNA noise the noise budget per column (`σ · √d ≈ 0.36`) exceeds the noise-free per-column response norm (~0.05). A noise-dominated matrix has a random-matrix singular-value distribution and an O(1) condition number for the same reason a Ginibre matrix does — the small condition number reflects the noise, not the operator. On the noise-free response the same truncation gives condition ~65; on the input alone, ~75. The identifiability gate we ship now refuses to declare "full-domain identified" unless both the input rank and the retained response rank equal `d` at the preregistered tolerance. Jost has input rank 24 at that tolerance, so the gate now correctly labels the Jost fit as partially identified, and the condition-number summary should be interpreted alongside the input and response ranks separately rather than as a single scalar.
-
-The general point: uncalibrated single-number diagnostics can mislead at Perturb-seq signal-to-noise ratios. The calibrated form is the paired comparison of real held-out ρ against a matched-SNR linear-truth control under the same fitting recipe (Table 1).
+We ship a separate correctness fix at the identifiability level: the gate that labels a measurement "full-domain identified" now requires both the input rank and the retained response rank to equal d at the preregistered tolerance. Jost's input rank is 24 at that tolerance, so the gate now correctly labels the Jost fit as partially identified regardless of what noise does to the retained response rank.
 
 ---
 
@@ -99,11 +91,7 @@ The general point: uncalibrated single-number diagnostics can mislead at Perturb
 
 ### 3.1 What the result says
 
-Under the additive-input encoding `u_g = −κ_g Wᵀδ_g` and truncated-SVD fitting on three current Perturb-seq screens, target-held-out prediction of a new perturbation does not beat the predict-zero baseline held-out ρ = 1, while a matched-SNR linear-truth positive control on the same U, κ, and per-entry noise reaches ρ well below 1 on every screen. The failure is not a noise-level artifact, is not created by the top-cell-count target selection convention, is not created by identifiability under-determination on Jost's smaller target set, and is not created by mis-scaling of the κ proxy on Replogle or by the count-based κ on Jost.
-
-Two positive findings survive from the same measurements. Under the same matched-SNR positive control, the fitting machinery cleanly recovers the interaction structure of a known operator: interaction-only Frobenius cosine 0.98 on K562 and 0.74 on RPE1, against a shift-1 cross-replicate null of ~0.003. On Jost's titrated design the pipeline captures within-target dose interpolation along a known target direction: guide-level ρ = 0.66 against 0.22 for the matched linear-truth control on the same folds. Neither is target-held-out recovery of the operator; both are legitimate summaries of what the pipeline does capture at these amplitudes.
-
-The result is strongly incompatible with reading fitted spectra or edges as quantitatively estimated operators on the tested screens under the tested encoding. It does not rule out recovery under an alternative input encoding, an alternative model class, a lower-dimensional target, a stronger structural prior, or a different assay design.
+Under the additive-input encoding `u_g = −κ_g Wᵀδ_g` and truncated-SVD fitting on three current Perturb-seq screens, target-held-out prediction of a new perturbation does not beat the predict-zero baseline while a matched-SNR linear-truth positive control on the same U, κ, and per-entry noise reaches ρ well below 1 on every screen. Fitted spectra or edges from this encoding should not be read as quantitatively estimated operators on the tested screens; the result does not rule out recovery under an alternative input encoding, an alternative model class, a lower-dimensional target, a stronger structural prior, or a different assay design.
 
 ### 3.2 What is not yet decided
 
@@ -115,15 +103,17 @@ Two candidate mechanisms are consistent with the data, and neither is decided by
 
 A footprint encoding rewrites the input and tests projection. A within-target concordance diagnostic tests the direction assumption. Both are cheap; neither was required to establish the primary claim.
 
+Recent benchmarks of perturbation-prediction methods on Perturb-seq screens have found that context-free baselines — predicting a population mean or a nearest-neighbour response — can match or exceed more complex generative models under held-out evaluation [6]. Our result places that finding earlier in the pipeline: at the encoding stage. If the additive-input encoding does not carry target-specific signal in a form the linear settled-state fit can exploit, no downstream generative choice sitting on top of the same encoding can rescue it. The alternative encodings named in this section are the first place to look; a benchmarking effort that swaps only the encoding while holding the model class fixed would isolate the effect cleanly.
+
 ### 3.3 Limitations
 
 The result concerns three screens, one encoding class, and one estimator family. Structural alternatives — a diagonal-only, block-modular, symmetric, or GRN-constrained operator; a much smaller d; a footprint or `Σ_ctrl`-weighted encoding; a nonlinear dose-response family; a Perturb-seq design with true replicate targets and calibrated dose titration — were not tested and could behave differently. The identifiability calculation itself, a rank statement about `range(S)`, is correct as a matter of linear algebra and unaffected by the encoding failure.
 
 Two per-screen caveats. Replogle-essential libraries retain one sgRNA per target after the released aggregation step, so within-target replicate diagnostics do not apply to them. Jost has 25 targets, small enough that a target-held-out CV places most of the design outside the training set and the fit sits close to under-determined at d = 30; the d-sweep controls for this at d = 5 but does not turn Jost into a general genome-scale test. Cross-screen quantitative comparison of specific ρ values requires care because per-cell noise structure differs across cell lines.
 
-The additive-input model itself is a modelling choice. CRISPRi is closer to a clamp on target transcript than to an additive forcing term. Under a program-space clamp with orthonormal `W` and a rank-deficient `J_gene = W·J_prog·Wᵀ`, the intervention model is exactly under-identified from projected observations. This is a valid algebraic result under those assumptions rather than a general impossibility; alternative encoder/decoder conventions or explicit gene-space dynamics can change the conclusion.
+The additive-input model itself is a modelling choice. CRISPRi is closer to a clamp on target transcript than to an additive forcing term. Under a program-space clamp with orthonormal `W` and a rank-deficient `J_gene = W·J_prog·Wᵀ`, the intervention model is exactly under-identified from projected observations. This is a valid algebraic result under those assumptions rather than a general impossibility; alternative encoder/decoder conventions or explicit gene-space dynamics can change the conclusion. The CRISPRi assay also masks promoter-level heterogeneity that a targeted-promoter design would separate [7]; the additive-input encoding assumes a single input direction per target and does not distinguish alternative-promoter isoforms.
 
-We report every real held-out ρ with its across-outer-fold standard deviation and every simulated positive-control ρ with its cross-replicate standard deviation. Interpretation carries the same reservation: target-held-out held-out ρ on a real Perturb-seq screen is the quantity that a matched-SNR linear-truth positive control makes calibrated.
+We report every real held-out ρ with its across-outer-fold standard deviation and every simulated positive-control ρ with its cross-replicate standard deviation. Interpretation carries the same reservation: held-out ρ on a real Perturb-seq screen is the quantity that a matched-SNR linear-truth positive control makes calibrated.
 
 ---
 
@@ -161,11 +151,11 @@ The Jost d-sweep in §2.3 truncates S and U to the first `d' ∈ {5, 10, 15, 20,
 
 For each screen we compute the observed median column norm of `S`. For each of 15 independent simulations, we draw `J_ref = G − 1.5·I` with `G` entrywise `N(0, 1/d)` and set `J = J_ref / α_S`, choosing `α_S` so the median column norm of the noise-free `S_true = −J⁻¹U` matches the observed median at each screen's own `U`. We add per-entry noise at the screen's bootstrapped σ (§4.4) and run the same nested-CV recipe (§4.5) on this synthetic `(S_obs, U)` pair. We report the mean and standard deviation of held-out ρ across the 15 simulations.
 
-The interaction-only cosine reported in §2.2 uses the same synthetic ground-truth ensemble at matched α_S and reports Frobenius cosine after subtracting the diagonal from both `A` and `J`, with the shift-1 cross-replicate null as its baseline (N = 200 replicates). The signal-scale sweep in §2.2 varies α_S across a log grid and reports the cos-versus-α_S curve and the α_S implied by the observed median column norm.
+The interaction-only cosine reported in §2.2 uses the same synthetic ground-truth ensemble at matched α_S and reports Frobenius cosine after subtracting the diagonal from both `A` and `J`, with a cross-replicate null as its baseline. The cross-replicate null pairs each fitted `A_r` with an independently drawn ground truth `J_{r'}` (shift-1 pairing in the replicate index; N = 200 replicates), so every element of the pipeline is preserved and only the ground truth we score against is randomized. The signal-scale sweep in §2.2 varies α_S across a log grid and reports the cos-versus-α_S curve and the α_S implied by the observed median column norm.
 
 ### 4.7 Direction-only refit
 
-Column-normalize `S` and `U` — divide each column by its own Frobenius norm — then run the same nested-CV recipe (§4.5). This removes all per-guide scale from the fitting problem. On the same design the matched-SNR linear-truth control is column-normalized in the same way and evaluated by the same recipe; both are reported in §2.3.
+Column-normalize `S` and `U` — divide each column by its own Frobenius norm — then run the same nested-CV recipe (§4.5). This removes all per-guide scale from the fitting problem. For the matched-SNR linear-truth control we generate `S_obs = S_true + σ · ε` at each screen's own `α_S` and `σ` on the same U, column-normalize both `S_obs` and `U` in the same way, and run the same recipe. Both are reported in §2.3.
 
 ### 4.8 Preregistered vs post hoc
 
@@ -181,22 +171,32 @@ anchor-op is available at https://github.com/manarai/anchor-op under the MIT lic
 
 ## Author contributions
 
-*TO BE FILLED IN BEFORE SUBMISSION.*
+Dalton Kutzen: Methodology, Formal analysis, Investigation, Writing — original draft, Writing — review & editing.
 
-## Competing interests
+Sam Green: Validation, Visualization, Writing — review & editing.
 
-*TO BE FILLED IN BEFORE SUBMISSION.*
-
-## Acknowledgements
-
-*TO BE FILLED IN BEFORE SUBMISSION.*
+Tommy W. Terooatea: Conceptualization, Supervision, Project administration, Funding acquisition, Writing — review & editing.
 
 ## Funding
 
-*TO BE FILLED IN BEFORE SUBMISSION.*
+This work was supported by the College of Life Sciences at Brigham Young University.
+
+## Competing interests
+
+The authors declare no competing interests.
 
 ## References
 
-[1] Replogle JM, Saunders RA, Pogson AN, et al. (2022) Mapping information-rich genotype–phenotype landscapes with genome-scale Perturb-seq. *Cell* 185(14):2559–2575.e28.
+[1] Replogle JM, Saunders RA, Pogson AN, et al. (2022) Mapping information-rich genotype–phenotype landscapes with genome-scale Perturb-seq. *Cell* 185(14):2559–2575.e28. doi:10.1016/j.cell.2022.05.013
 
-[2] Jost M, Santos DA, Saunders RA, et al. (2020) Titrating gene expression using libraries of systematically attenuated CRISPR guide RNAs. *Nature Biotechnology* 38:355–364.
+[2] Jost M, Santos DA, Saunders RA, et al. (2020) Titrating gene expression using libraries of systematically attenuated CRISPR guide RNAs. *Nature Biotechnology* 38:355–364. doi:10.1038/s41587-019-0387-5
+
+[3] Gardner TS, di Bernardo D, Lorenz D, Collins JJ (2003) Inferring genetic networks and identifying compound mode of action via expression profiling. *Science* 301(5629):102–105. doi:10.1126/science.1081900
+
+[4] Kholodenko BN, Kiyatkin A, Bruggeman FJ, Sontag E, Westerhoff HV, Hoek JB (2002) Untangling the wires: A strategy to trace functional interactions in signaling and gene networks. *Proc. Natl. Acad. Sci. USA* 99(20):12841–12846. doi:10.1073/pnas.192442699
+
+[5] Tegnér J, Yeung MKS, Hasty J, Collins JJ (2003) Reverse engineering gene networks: Integrating genetic perturbations with dynamical modeling. *Proc. Natl. Acad. Sci. USA* 100(10):5944–5949. doi:10.1073/pnas.0933416100
+
+[6] Ahlmann-Eltze C, Huber W, Anders S (2025) Deep-learning-based gene perturbation effect prediction does not yet outperform simple linear methods. *Nature Methods*, in press.
+
+[7] King EM, Xie L, Lin S-P, et al. (2026) Alternative promoter usage in single-cell CRISPRi screens. *Nucleic Acids Research*, in press.
