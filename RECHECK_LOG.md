@@ -859,6 +859,210 @@ baseline on every (screen × encoding) cell, so the estimator recovers
 signal that no fitted encoding on the real data does on RPE1 or Jost,
 and only fixed and footprint on K562 close a small fraction of the gap.
 
+## v0.3.1 — Learned-encoding fidelity check + one-table fix
+
+Preregistered 2026-09-28 in `PREREGISTRATION_AMENDMENT.md` §"Amendment
+— learned-encoding fidelity check (2026-09-28)"; committed at
+`1969c7a` before any fidelity-check code ran.
+
+### STEP 1 — attempted reproduction of Ahlmann-Eltze et al. 2025
+
+Cloned `github.com/const-ae/linear_perturbation_prediction-Paper` into
+a session scratchpad. Extracted their linear-baseline model from
+`benchmark/src/run_linear_pretrained_model.R` (function
+`solve_y_axb`):
+
+  Ŷ = A · K · B + center + baseline
+
+  where A = gene embedding (pca$x, per-gene PCA on training pseudobulk
+  X; default `pca_dim = 10`), B = t(pca$x) indexed by target gene, K =
+  double-ridge least-squares solution
+  `K = (AᵀA + λI)⁻¹ Aᵀ (Y − center) Bᵀ (BBᵀ + λI)⁻¹` (default
+  `λ = 0.1`), `center = rowMeans(Y_train)` = per-gene training-cond
+  mean of change, `baseline = rowMeans(X_ctrl)` = per-gene control-
+  cell mean.
+
+Their published K562 lpm_selftrained value (aggregated over their
+`train == "test"` rows in
+`source_data/single_perturbation_prediction.xlsx`): `r2 = 0.9858 ±
+0.0093` on n = 379 held-out perturbations; their mean baseline
+`r2 = 0.9846 ± 0.0112`.
+
+**Full end-to-end reproduction of their number was not tractable in
+this session.** Their pipeline consumes GEARS-preprocessed
+`data/gears_pert_data/replogle_k562_essential/perturb_processed.h5ad`
+and a seed-specific test/train split JSON, both produced by
+`benchmark/src/prepare_perturbation_data.py` under a dedicated conda
+environment (`gears_env2`). Our K562 h5ad
+(`examples/data/K562_essential_normalized_singlecell_01.h5ad`) is
+**pre-scaled ctrl-residual** data (per-gene control mean is 0.0000);
+their pipeline expects raw pseudobulk. Their `r2` is a Pearson
+correlation on raw pseudobulk expression, where the shared expression
+profile between train and test conditions dominates and every method
+lands at ~0.98; on our residual-scale data that shared profile is
+absent and absolute Pearson values sit ~0.24–0.26 regardless of
+method. Reproducing their exact number would require running their
+GEARS-based data-prep pipeline (~10 GB download + slurm-oriented
+workflow), which we did not do here.
+
+### STEP 2 — structural fidelity within our pipeline
+
+We ported `solve_y_axb` to Python (`reproduction/54_learned_encoding_fidelity.py`,
+`ae_solve` function), ran it on our K562 pseudobulk + a fixed 80/20
+target split (seed 20260928, 1265 train / 316 test targets, PCA on
+training pseudobulk X at `pca_dim = 10`, `λ = 0.1`), and compared:
+
+| Method | per-condition Pearson r on change (mean, SD) | Gap vs Python port of `solve_y_axb` |
+|---|---:|---:|
+| AE port `solve_y_axb` (Python) | 0.2584 ± 0.2200 | — |
+| AE-style single-ridge (V for train + test) | 0.2561 ± 0.2192 | 0.88 % rel |
+| Our comparator conv (uσ train / V test) | 0.2402 ± 0.1935 | **7.04 % rel** |
+| Their-style mean baseline | 0.2400 ± 0.1934 | — |
+
+Findings: on the same K562 pseudobulk + fixed fold, a Python port of
+Ahlmann-Eltze's `solve_y_axb` (double-ridge) agrees with a single-
+ridge implementation of the same one-table convention to 0.88 %
+relative. Our comparator `_learned_encoding_forward` in
+`reproduction/51_comparator_panel.py` deviates by 7 % relative from
+the Python port and lands within 0.0002 of the mean baseline —
+essentially not making a prediction beyond the intercept.
+
+**Root cause identified.** Our `_learned_encoding_forward` used **two
+different embedding tables**: `u·σ` (SVD row coordinates of the
+training change matrix) for training-target embeddings, and
+`V_gene[:, gene_index[target]]` (SVD gene loading at the feature-gene
+column) for held-out-target embeddings. Ahlmann-Eltze use **one**
+table (per-gene PCA coordinates, indexed by target-gene name) for
+both. Under the two-table convention the linear map `B_gene` fit on
+`u·σ` does not predict test targets correctly because
+`V_gene[:, gene_index[target]]` lives in a different embedding
+geometry than `u·σ_train`. Preregistration §"Amendment —
+learned-encoding fidelity check" required following their published
+code; our two-table convention was a deviation.
+
+### Verdict against preregistered fidelity criterion
+
+The preregistered criterion — "|ours − theirs| ≤ max(their-SD, 5 %
+relative of theirs) on each Replogle dataset" — cannot be applied
+directly because our K562 h5ad and their preprocessing sit on
+different absolute scales (0.24–0.26 vs 0.99 for the same method
+type). On the strictly within-pipeline check the AE-port and its
+single-ridge equivalent agree to 0.88 % rel; our comparator's two-
+table deviation is 7 % rel — outside the 5 % threshold. FAIL branch
+of the preregistered decision rule: treat as implementation bug, fix,
+rerun Step 1b, update artifacts.
+
+### Fix
+
+`reproduction/51_comparator_panel.py::_learned_encoding_forward`
+switched to the one-table convention:
+
+  `embed[t] = V_gene[:, gene_index[t]]` for both training and test
+  targets, where `V_gene = vt[:de]` from the SVD of the training-
+  target change matrix `Y_tr`.
+
+The ridge fit and the training-fold intercept `b_out` are unchanged.
+`_learned_shuffled_null` inherits the fix by construction (it calls
+`_learned_encoding_forward` on a permuted target label vector).
+
+### Superseded numbers (kept for the record)
+
+The intercept-fixed but two-table Step 1 numbers from commit `ce8b347`
+(learned encoding rows only; fixed and footprint rows are unchanged
+by the fix and remain current):
+
+| Screen | Learned prog (SD) | Learned gene | Learned null p2.5 |
+|---|---:|---:|---:|
+| K562 essential | ~~0.8395~~ (~~0.0231~~) | ~~0.8940~~ | ~~0.8367~~ |
+| RPE1 essential | ~~0.9271~~ (~~0.0083~~) | ~~0.9665~~ | ~~0.9270~~ |
+| Jost 2020 | ~~0.9554~~ (~~0.1093~~) | ~~0.9596~~ | ~~0.9480~~ |
+
+### One-table-fixed Step 1b (current, v0.3.1)
+
+Command: `python reproduction/51_comparator_panel.py` at the commit
+that applies the one-table fix. Same seed (`SEED = 20260928`), same
+folds, same lambda grid (including `1e30`), same 100-permutation
+shuffled-embedding null.
+
+**Sanity (a):** ρ_fwd(λ = 1e30) equals training-mean baseline exactly
+on all three screens (gap 0.00e+00 for K562 / RPE1 / Jost).
+
+**Sanity (b):** matched linear-truth with intercept beats training-
+mean by > 2 SDs on every (encoding × screen) cell (values unchanged
+from the intercept-fix rerun since the fixed and footprint encodings
+were not touched; the learned matched-linear was not reported in the
+v0.3.0 spec).
+
+**Sanity (c):** learned encoding per-fold λ picks:
+K562 [0.1, 0.1, 0.1, 0.1, 0.1] — the fit is active on every fold.
+RPE1 [1e30, 1, 3, 3, 1] — nested CV picks the intercept-only collapse
+on one fold and small λ on the others.
+Jost [1e30, 1e30, 1e30, 1e30, 1e30] — nested CV picks the intercept-
+only collapse on *every* fold. The learned map does not beat the
+intercept alone on any inner validation split; the reported ρ_fwd is
+effectively the training-mean prediction (0.9528 ≈ 0.9681, with the
+small offset a fold-selection artifact).
+
+**Forward comparator, one-table fix (learned encoding rows updated;
+fixed and footprint unchanged from ce8b347):**
+
+| Screen | Baseline tm (SD) | Fixed (SD) | Footprint (SD) | Learned prog (SD) | Learned gene | Learned null p2.5 |
+|---|---:|---:|---:|---:|---:|---:|
+| K562 essential | 0.8382 (0.0218) | **0.7907** (0.0303) | **0.7897** (0.0348) | **0.7914** (0.0401) | 0.8563 | 0.8366 |
+| RPE1 essential | 0.9341 (0.0293) | 0.9359 (0.0296) | 0.9298 (0.0342) | 0.9267 (0.0086) | 0.9660 | 0.9273 |
+| Jost 2020 | 0.9681 (0.0682) | 0.9962 (0.1594) | 0.9701 (0.0413) | 0.9528 (0.1024) | 0.9559 | 0.9487 |
+
+**Verdict per screen × encoding under the preregistered success rule
+(beat tm by > 2 outer-fold SDs AND (learned only) below shuffled-null
+p2.5):**
+
+- K562 fixed: ✅ success (gap 0.0475 > 2·SD_tm = 0.0436).
+- K562 footprint: ✅ success (gap 0.0485 > 0.0436).
+- **K562 learned: ✅ success** (gap 0.0468 > 0.0436 AND ρ_fwd 0.7914
+  < null p2.5 0.8366 by 0.045; both conditions met). This is a
+  change from the v0.3.0 report; the two-table convention hid a
+  learned-encoding win on K562.
+- RPE1 fixed: ✗ (gap −0.0018).
+- RPE1 footprint: ✗ (gap 0.0043 < 0.0586).
+- RPE1 learned: ✗ (gap 0.0075 < 0.0586; below null p2.5 by 0.0006 —
+  passes null test, fails the 2-SD test).
+- Jost fixed: ✗ (gap −0.0281).
+- Jost footprint: ✗ (gap −0.0020).
+- Jost learned: ✗ (gap 0.0153 < 0.1364 AND ρ 0.9528 > null p2.5
+  0.9487, i.e. NOT below the null).
+
+**Decision-rule branch (preregistered):** learned succeeds on 1/3 —
+still not "≥ 2/3", so branch (i) does not apply. Learned fails on
+2/3 and succeeds on 1/3, so branch (ii) (all fail) does not describe
+the outcome either. Branch (iii) mixed applies. **Per-screen report,
+no cross-screen ranking, no title-level promotion.**
+
+The mixed outcome now supports a fuller-encoding-class success on
+K562 essential — all three linear encodings tested (fixed, footprint,
+learned) beat the training-mean baseline by > 2 outer-fold SDs and
+(learned) below the shuffled-embedding null p2.5 — while the same
+three encodings all fail on RPE1 essential and Jost 2020 under the
+same recipe. §2.6 is updated to reflect this. The K562 gap-closure
+reading is unchanged from v0.3.0 (fixed and footprint close ~7 % of
+the training-mean-to-linear-truth gap; the matched-linear-truth ρ_fwd
+of 0.19 remains the ceiling reachable at matched SNR by a well-posed
+linear operator).
+
+### Bridge analysis (STEP 3, preregistered)
+
+The preregistered PASS-branch trigger for the bridge analysis was
+successful fidelity of our implementation against Ahlmann-Eltze's on
+their exact setting. Because we could not run their exact setting in
+this session (GEARS-preprocessed h5ad + slurm workflow, see STEP 1
+above), the PASS trigger is not met on the strictly-preregistered
+reading. We did the within-pipeline structural check that IS
+tractable here — reported in the "STEP 2 — structural fidelity within
+our pipeline" section above. The full one-factor-at-a-time bridge
+analysis (their split → our split, their metric → our ρ_fwd, their
+gene space → our program space, their preprocessing → ours) requires
+the same GEARS data prep and is left to a follow-up when that
+environment is available.
+
 ## Step 2 — Positive-control ensembles at matched amplitude
 
 Command: `python reproduction/52_positive_control_ensembles.py`

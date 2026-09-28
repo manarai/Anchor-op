@@ -322,22 +322,27 @@ def _learned_encoding_forward(S_prog, target_of_g, guides_by_target, adata,
         # 1) pseudobulk on training targets only
         Y_tr = _pseudobulk_target_response(adata, guide_key, target_key, control_label, tr_targets)
         # 2) PCA on Y_tr: rows = targets, cols = genes. SVD gives U(d)·Σ·V(g).
-        #    "Target embedding" = U · Σ (per-target coordinates); "gene loading" = V.
+        #    Following Ahlmann-Eltze et al. 2025 (github.com/const-ae/
+        #    linear_perturbation_prediction-Paper), the perturbation
+        #    embedding for a target is that target-gene's row of a
+        #    training-derived gene PCA — one table, indexed by target-
+        #    gene name, used for BOTH training and test perturbations
+        #    (fidelity check §_step5_learned_fidelity, 2026-09-28).
         u, sv, vt = np.linalg.svd(Y_tr, full_matrices=False)
         de = min(GENE_EMBED_D, len(sv))
-        U_train_emb = u[:, :de] * sv[:de]  # (n_train_targets, de) — training embeddings
-        V_gene = vt[:de]                    # (de, G) — gene loadings
+        V_gene = vt[:de]                    # (de, G) — training-derived gene loadings
 
-        # 3) Test target embedding: take the training-derived V_gene, read the
-        #    row corresponding to the held-out target's feature gene (if that
-        #    gene is in adata.var_names). If not, fall back to 0 (predict-mean-response).
+        # 3) One-table embedding: for a target g, embed[g] =
+        #    V_gene[:, gene_index[g]]. Used identically for train + test.
         gene_index = {g: k for k, g in enumerate(adata.var_names)}
+        tr_embed = np.zeros((len(tr_targets), de), dtype=np.float64)
+        for j, t in enumerate(tr_targets):
+            if t in gene_index:
+                tr_embed[j] = V_gene[:, gene_index[t]]
         te_embed = np.zeros((len(te_targets), de), dtype=np.float64)
         for j, t in enumerate(te_targets):
             if t in gene_index:
                 te_embed[j] = V_gene[:, gene_index[t]]
-        # Training embedding as design
-        tr_embed = U_train_emb  # (n_train_targets, de)
 
         # 4) Gene-space training responses matrix: rows are targets, cols genes.
         Y_train = Y_tr  # already computed

@@ -1,0 +1,65 @@
+{
+  "K562_essential": {
+    "screen": "K562_essential",
+    "pca_dim": 10,
+    "ridge": 0.1,
+    "n_train": 1265,
+    "n_test": 316,
+    "note": "This is our K562/RPE1 h5ad + our pseudobulk pipeline, NOT their GEARS-preprocessed h5ad or their exact test-train split JSON. Numbers are structurally comparable within a fixed pipeline; direct equality with their published number requires their preprocessing + split.",
+    "published_reference_from_source_data_xlsx": {
+      "lpm_selftrained_r2_mean": 0.9858,
+      "lpm_selftrained_r2_sd": 0.0093,
+      "mean_baseline_r2_mean": 0.9846,
+      "mean_baseline_r2_sd": 0.0112,
+      "n_test_perturbations": 379
+    },
+    "ae_R2_raw_pseudobulk": {
+      "metric": "ae r on raw X",
+      "mean": 0.258371504498766,
+      "sd": 0.21998826414380387,
+      "median": 0.22959631789010818
+    },
+    "ae_R2_change": {
+      "metric": "ae r on change",
+      "mean": 0.25837150455231495,
+      "sd": 0.2199882641234936,
+      "median": 0.22959631805112668
+    },
+    "mean_baseline_R2_raw": {
+      "metric": "mean-baseline r on raw X",
+      "mean": 0.2399594942536315,
+      "sd": 0.1933634639949522,
+      "median": 0.22252623465440094
+    },
+    "mean_baseline_R2_change": {
+      "metric": "mean-baseline r on change",
+      "mean": 0.23995949431345542,
+      "sd": 0.1933634639788335,
+      "median": 0.2225262346599926
+    },
+    "our_current_conv_R2_change": {
+      "metric": "our (u\u03c3 train / V test) r on change",
+      "mean": 0.24019295048181313,
+      "sd": 0.1934818480887871,
+      "median": 0.22134929322101354
+    },
+    "our_current_conv_R2_raw": {
+      "metric": "our (u\u03c3 train / V test) r on raw X",
+      "mean": 0.2401929504220215,
+      "sd": 0.19348184810493751,
+      "median": 0.22134929323957903
+    },
+    "ae_style_conv_R2_change": {
+      "metric": "ae-style (V for both) r on change",
+      "mean": 0.25608931703321214,
+      "sd": 0.21921327253686665,
+      "median": 0.22795644073749943
+    },
+    "ae_style_conv_R2_raw": {
+      "metric": "ae-style (V for both) r on raw X",
+      "mean": 0.2560893169787383,
+      "sd": 0.2192132725569593,
+      "median": 0.2279564406826769
+    }
+  }
+}
