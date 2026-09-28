@@ -252,6 +252,110 @@ amendment section is not edited.
 
 ---
 
+## Amendment — learned-encoding fidelity check (2026-09-28)
+
+This section is being committed **before any of the fidelity-check code
+below is run** (STEP 0 of the v0.3.1 plan). The specifications lock in
+the fidelity criterion, decision rules, and bridge-analysis protocol
+independently of the outcomes.
+
+### Context
+
+The comparator panel of §2.6 in `MANUSCRIPT.md` at commit `c5521da`
+reports that a training-fold learned linear encoding in the style of
+Ahlmann-Eltze et al. 2025 [10] does not beat the training-mean
+baseline on any of the three tested screens. To show that this failure
+in our setting cannot be dismissed as an implementation error, we
+preregister a fidelity check against their published number under
+their own setting.
+
+### Fidelity criterion
+
+For each Replogle screen reported in Ahlmann-Eltze et al. 2025, run
+their linear-baseline code (from
+`github.com/const-ae/linear_perturbation_prediction-Paper`) on the
+dataset version, preprocessing, train/test split, gene set, embedding
+dimension, and regularizer they used, and report their metric on their
+held-out set. Then feed the exact same data, split, gene set,
+embedding dimension, and metric into our learned-encoding
+implementation (the function called by
+`reproduction/51_comparator_panel.py`), changing only input / output
+plumbing. **Never modify the model itself.**
+
+**Fidelity passes** on a given dataset if our implementation's metric
+sits within the *larger* of:
+
+  (i) the across-split standard deviation of their implementation's
+      metric on the same dataset (measured within their code, not
+      supplied by them), or
+  (ii) 5 % of their implementation's metric value (relative).
+
+**Fidelity fails** if the discrepancy exceeds both thresholds.
+
+### Decision rules
+
+- **PASS** (fidelity holds on every reported Replogle dataset tested):
+  - Add a Methods §4.5b sentence reporting datasets, their number, our
+    number, and the pass verdict.
+  - Add one to two sentences in §2.6 stating that our learned-encoding
+    implementation reproduces their result in their setting and that
+    the negative outcome on the three tested screens is not an
+    implementation error.
+  - Run the Step 3 bridge analysis (single-factor changes) and report
+    the small table showing which factor accounts for the gap between
+    their setting and ours.
+
+- **FAIL** (fidelity fails on ≥ 1 dataset):
+  - Treat as an implementation bug. Find and fix it in
+    `reproduction/51_comparator_panel.py`. Log the bug, root cause,
+    and fix in `RECHECK_LOG.md`.
+  - Rerun Step 1b (learned encoding on K562 / RPE1 / Jost, same
+    outer / inner folds, same seed, same shuffled-embedding null,
+    same success criterion).
+  - Update §2.6, Fig 6, the abstract, and the claims-vs-scope table
+    with the fidelity-fixed rerun numbers. Preserve the pre-fix
+    values in RECHECK_LOG marked SUPERSEDED.
+
+### Bridge analysis (STEP 3, PASS branch only)
+
+Starting from Ahlmann-Eltze's setting on the fidelity dataset, change
+one factor at a time toward the setting we use in §2.6, and record the
+linear-encoding vs mean-baseline gap after each change:
+
+  (a) their metric → our `ρ_fwd = ‖Ŝ − S‖_F / ‖S‖_F`;
+  (b) their train / test split → our target-grouped nested-CV
+      (5 outer × 3 inner, target-held-out);
+  (c) their gene-space evaluation → our d = 30 program-space
+      evaluation projected through `W`;
+  (d) their preprocessing → our HVG selection + PCA basis on
+      non-targeting controls.
+
+Report as a 4-row × (linear ρ, mean-baseline ρ, gap) table with the
+single-factor change per row. No further changes.
+
+### Deliverables and reporting rule
+
+All STEP 1–3 outputs go to `results/recheck/F_step5_learned_fidelity.json`
+and (for bridge) `results/recheck/F_step5_bridge_analysis.json`.
+Methods §4.5b receives the pass / fail verdict and the numbers exactly
+as they came out. If a bug is found post-hoc, the fix, the rationale,
+and all reruns of affected controls are appended transparently to
+`RECHECK_LOG.md`; this amendment section is not edited. No tuning
+after seeing results.
+
+### Title narrowing
+
+The manuscript title changes on the v0.3.1 tag to *"Additive-input
+encoding fails operator-level target-held-out prediction on current
+Perturb-seq screens"*. The word "operator-level" narrows the scope of
+the failure claim to the inverse-direction / operator-fit reading and
+away from the forward-direction prediction task, where the intercept-
+fixed comparator of §2.6 already shows a small preregistered win on
+K562 (fixed / footprint beat training-mean by ~ 2 outer-fold SDs; 7 %
+gap closure vs the matched-linear-truth generator).
+
+---
+
 ## Preregistration design flaw noted (not a change, but a caveat)
 
 - **`rel_diff ≤ 0.25` threshold is not calibrated to any realistic
