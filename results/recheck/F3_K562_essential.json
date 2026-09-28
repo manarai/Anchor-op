@@ -1,0 +1,30 @@
+{
+  "cell_line": "K562_essential",
+  "sigma": 0.24,
+  "alpha_hat_S": 368.74288750229255,
+  "d": 30,
+  "n_guides": 188,
+  "params_in_A": 900,
+  "rho_real": 1.1136719601354355,
+  "rel_diff_real": 1.4663562268861516,
+  "sim_linear_published_snr": {
+    "tag": "linear-sim @ published alpha_S=1",
+    "alpha_S": 1.0,
+    "rho_mean": 1.1195298666422462,
+    "rho_median": 1.1184506515441959,
+    "rho_std": 0.00658720925281855,
+    "rel_diff_mean": 1.5085084064405159,
+    "rel_diff_median": 1.5099836419332522,
+    "n_reps": 15
+  },
+  "sim_linear_matched_snr": {
+    "tag": "linear-sim @ matched alpha_S=368.74",
+    "alpha_S": 368.74288750229255,
+    "rho_mean": 0.1807246736612969,
+    "rho_median": 0.1802632824667069,
+    "rho_std": 0.004265106882565209,
+    "rel_diff_mean": 0.3336159905257043,
+    "rel_diff_median": 0.33120671541160523,
+    "n_reps": 15
+  }
+}

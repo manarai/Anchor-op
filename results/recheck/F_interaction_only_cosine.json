@@ -1,0 +1,36 @@
+{
+  "seed": 20260927,
+  "rank_tol": 0.01,
+  "n_reps": 200,
+  "definition": "interaction-only cosine subtracts the diagonal of both A and J before computing the Frobenius cosine; this removes the shared \u2212cI baseline that dominates the full-matrix cosine at matched \u03b1.",
+  "datasets": {
+    "K562_essential": {
+      "alpha_S": 369.0,
+      "sigma": 0.24,
+      "n_reps": 200,
+      "d": 30,
+      "n_guides": 188,
+      "cos_full_mean": 0.9926103313616466,
+      "cos_full_null_mean_shift1": 0.6954944900920708,
+      "cos_interaction_only_mean": 0.9763816023022182,
+      "cos_interaction_only_std": 0.0031113006389431154,
+      "cos_interaction_only_null_mean_shift1": 0.0031927310140469887,
+      "cos_interaction_only_null_std_shift1": 0.034121628198218686,
+      "cos_interaction_only_paired_diff_mean": 0.9731888712881712
+    },
+    "RPE1_essential": {
+      "alpha_S": 199.0,
+      "sigma": 0.352,
+      "n_reps": 200,
+      "d": 30,
+      "n_guides": 153,
+      "cos_full_mean": 0.9123279033384941,
+      "cos_full_null_mean_shift1": 0.6748836966401152,
+      "cos_interaction_only_mean": 0.7376619365044721,
+      "cos_interaction_only_std": 0.023080739834110936,
+      "cos_interaction_only_null_mean_shift1": 0.0031261780645753124,
+      "cos_interaction_only_null_std_shift1": 0.03329143508352065,
+      "cos_interaction_only_paired_diff_mean": 0.7345357584398968
+    }
+  }
+}

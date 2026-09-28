@@ -1,0 +1,14 @@
+{
+  "cell_line": "K562_essential",
+  "d": 30,
+  "n_guides": 188,
+  "sigma": 0.24,
+  "median_norm_S_sim_alpha1_dense": 0.025967261913969416,
+  "median_norm_S_sim_plus_noise": 1.3012297283545935,
+  "median_norm_S_observed": 9.296915978159438,
+  "mean_norm_S_observed": 9.41916633391023,
+  "median_norm_U": 0.029285383839177677,
+  "sim_over_obs_ratio_median": 358.0245005792484,
+  "sim_per_entry_snr": 0.09490045852223501,
+  "obs_per_entry_snr": 26.316450020313688
+}

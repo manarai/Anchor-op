@@ -1,0 +1,22 @@
+{
+  "seed": 20260927,
+  "replogle_at_least_2_guides": {
+    "K562_essential": {
+      "n_targets": 188,
+      "n_targets_with_at_least_2_guides": 0,
+      "n_targets_with_at_least_3_guides": 0,
+      "n_guides_per_target_median": 1,
+      "note": "Replogle essential is aggregated to target-level (one 'guide' per target) in this pipeline. Within-target replicate concordance is therefore not measurable on this dataset without disabling the target-aggregation step in examples/01b_measure_k562_replogle.ipynb."
+    },
+    "RPE1_essential": {
+      "n_targets": 153,
+      "n_targets_with_at_least_2_guides": 0,
+      "n_targets_with_at_least_3_guides": 0,
+      "n_guides_per_target_median": 1,
+      "note": "Replogle essential is aggregated to target-level (one 'guide' per target) in this pipeline. Within-target replicate concordance is therefore not measurable on this dataset without disabling the target-aggregation step in examples/01b_measure_k562_replogle.ipynb."
+    }
+  },
+  "between_target_null_note": "No guide-response CSV supplied. Run backed_exploratory_response_analysis.py on the Jost 2020 h5ad first, then re-run this script with --guide-responses-csv.",
+  "split_half_ceiling_status": "Not computed. Requires extending backed_exploratory_response_analysis.py to (a) randomly partition each retained guide's cells in half, (b) fit each half separately in the same PCA basis, (c) emit <stem>_split_half.csv with per-guide (guide, cos_split, n_left, n_right). The change is small (~30 LoC around control_sample_and_mean and stream_group_statistics) but has not been made in this pass.",
+  "primary_dataset_note": "Jost 2020 (GSE132080) is the primary dataset for within-target guide-replicate concordance: 25 targets, 3\u20136 sgRNAs each. Replogle essential in this pipeline is aggregated to one guide per target, so it is not usable for this diagnostic without turning aggregation off."
+}

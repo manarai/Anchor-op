@@ -1,0 +1,24 @@
+{
+  "cell_line": "K562_essential",
+  "d": 30,
+  "n_targets": 188,
+  "n_guides_retained": 188,
+  "top_sv_energy_fraction": 0.510261986938971,
+  "singular_values_top6": [
+    111.07494295521916,
+    66.2948276686002,
+    50.92194963812132,
+    35.71706409703149,
+    33.779988532565966,
+    22.794115132671287
+  ],
+  "between_target_mean_cos": 0.3827091911659842,
+  "median_abs_cos_s_u": 0.11484734386461823,
+  "chance_abs_cos": 0.11821732391999581,
+  "rho_real_original_measurement": 1.1136719601354355,
+  "rho_after_meanproj_removed": 1.1561875892213205,
+  "targets_in_hvg_span": 188,
+  "targets_outside_hvg_span": 0,
+  "median_delta_g_projected_norm": 0.08990298945456479,
+  "median_response_norm_per_target": 9.296915978159438
+}

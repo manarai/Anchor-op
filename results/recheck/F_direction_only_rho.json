@@ -1,0 +1,44 @@
+{
+  "seed": 20260927,
+  "rank_tol": 0.01,
+  "datasets": {
+    "K562_essential": {
+      "cell_line": "K562_essential",
+      "d": 30,
+      "n_guides_used": 188,
+      "baseline": {
+        "rho_real": 1.1136719601354355,
+        "rel_diff_real": 1.4663562268861516
+      },
+      "direction_only": {
+        "rho_real": 1.0866794323888345,
+        "rel_diff_real": 1.4966124404910541,
+        "delta_rho": -0.02699252774660099
+      },
+      "control_linear_sim_direction_only": {
+        "rho": 0.1687362152853529,
+        "note": "Noise-free linear J on real U, then column-normalized. Should be near 0 if the direction-only estimator can recover a linear operator when one is present. A value >> baseline direction-only \u03c1_real would mean the estimator itself has a floor."
+      },
+      "reading_c_verdict": "reading (c) is RULED OUT: \u03c1 essentially unchanged under column-normalization"
+    },
+    "RPE1_essential": {
+      "cell_line": "RPE1_essential",
+      "d": 30,
+      "n_guides_used": 153,
+      "baseline": {
+        "rho_real": 1.2084114941069417,
+        "rel_diff_real": 1.5708957516099307
+      },
+      "direction_only": {
+        "rho_real": 1.1281687886813592,
+        "rel_diff_real": 1.3993050844456458,
+        "delta_rho": -0.08024270542558254
+      },
+      "control_linear_sim_direction_only": {
+        "rho": 0.17248908186255577,
+        "note": "Noise-free linear J on real U, then column-normalized. Should be near 0 if the direction-only estimator can recover a linear operator when one is present. A value >> baseline direction-only \u03c1_real would mean the estimator itself has a floor."
+      },
+      "reading_c_verdict": "reading (c) is RULED OUT: \u03c1 essentially unchanged under column-normalization"
+    }
+  }
+}

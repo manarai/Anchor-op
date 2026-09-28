@@ -1,0 +1,45 @@
+{
+  "seed": 20260927,
+  "datasets": {
+    "K562_essential": {
+      "shape": [
+        30,
+        188
+      ],
+      "n_guides": 188,
+      "median_col_norm_U": 0.029285383839177677,
+      "mean_col_norm_U": 0.03339099273183791,
+      "frob_U": 0.5449411268894355,
+      "kappa_median": 0.31868573956313995,
+      "kappa_min": 0.05502298798297578,
+      "kappa_max": 0.487617242730239
+    },
+    "RPE1_essential": {
+      "shape": [
+        30,
+        153
+      ],
+      "n_guides": 153,
+      "median_col_norm_U": 0.021675950188524456,
+      "mean_col_norm_U": 0.027167008097194283,
+      "frob_U": 0.41708768605468155,
+      "kappa_median": 0.32401792465491114,
+      "kappa_min": 0.051253061745007766,
+      "kappa_max": 0.5545640298834723
+    },
+    "Jost_2020": {
+      "shape": [
+        30,
+        124
+      ],
+      "n_guides": 124,
+      "median_col_norm_U": 0.068155437707901,
+      "mean_col_norm_U": 0.0923612043261528,
+      "frob_U": 1.3920127153396606,
+      "kappa_median": 0.818688783,
+      "kappa_min": 0.069700615,
+      "kappa_max": 1.0
+    }
+  },
+  "Jost_measured_S_source": null
+}

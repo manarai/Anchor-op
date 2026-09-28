@@ -1,0 +1,14 @@
+{
+  "cell_line": "RPE1_essential",
+  "d": 30,
+  "n_guides": 153,
+  "sigma": 0.352,
+  "median_norm_S_sim_alpha1_dense": 0.02014082770473329,
+  "median_norm_S_sim_plus_noise": 1.9080345770019729,
+  "median_norm_S_observed": 3.909484323372112,
+  "mean_norm_S_observed": 5.451529429394889,
+  "median_norm_U": 0.021675950188524456,
+  "sim_over_obs_ratio_median": 194.10743096984766,
+  "sim_per_entry_snr": 0.05860396722966453,
+  "obs_per_entry_snr": 15.389286530841545
+}

@@ -1,0 +1,123 @@
+claim,value,location,source_file,verified_by,notes
+K562 sigma,0.240,MANUSCRIPT.md abstract & README headline,manuscript_figures/per_dataset_recovery.json,reproduction/19_sigma_bootstrap_all_datasets.py,within-guide split-half bootstrap; matches results/recheck/F1_K562_essential.json
+RPE1 sigma,0.352,MANUSCRIPT.md abstract & README headline,manuscript_figures/per_dataset_recovery.json,reproduction/19_sigma_bootstrap_all_datasets.py,within-guide split-half bootstrap; matches results/recheck/F1_RPE1_essential.json
+Jost target-aggregate sigma,0.036,MANUSCRIPT.md §2.7,manuscript_figures/jost_matched_geometry_nulls.json,reproduction/19_sigma_bootstrap_all_datasets.py,target-aggregate estimate at ~834 cells/target
+Jost per-sgRNA sigma,0.08,MANUSCRIPT.md §2.7,SOURCE_MISSING,reproduction/19_sigma_bootstrap_all_datasets.py,variance-scaling approximation from 0.036*sqrt(5); NOT a direct bootstrap
+older combined sigma,0.266,legacy Figs S10-S12 references,manuscript_figures/operator_recovery.json,reproduction/13_operator_recovery.py,retained only in legacy figures per Round-2 wording
+K562 median ||S_col||,9.297,F1 recheck,results/recheck/F1_K562_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's 9.3
+RPE1 median ||S_col||,3.909,F1 recheck,results/recheck/F1_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's 3.9
+K562 median ||U_col||,0.0293,F6 recheck,results/recheck/F6_input_amplitudes.json,reproduction/34_recheck_F6_jost_amplitude.py,matches reviewer's 0.029
+RPE1 median ||U_col||,0.0217,F6 recheck,results/recheck/F6_input_amplitudes.json,reproduction/34_recheck_F6_jost_amplitude.py,
+Jost median ||U_col||,0.0682,F6 recheck,results/recheck/F6_input_amplitudes.json,reproduction/34_recheck_F6_jost_amplitude.py,matches reviewer's 0.068
+K562 kappa median,0.319,F6 recheck,results/recheck/F6_input_amplitudes.json,reproduction/34_recheck_F6_jost_amplitude.py,detection-shift proxy on pre-scaled data
+Jost kappa median,0.819,F6 recheck,results/recheck/F6_input_amplitudes.json,reproduction/34_recheck_F6_jost_amplitude.py,count-based
+K562 paired-diff cos_full,-0.0017,MANUSCRIPT.md abstract & §2.2,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,10000 paired-bootstrap resamples
+K562 paired-diff cos_full 95CI,-0.005 to +0.002,MANUSCRIPT.md abstract,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,
+RPE1 paired-diff cos_full,+0.0002,MANUSCRIPT.md abstract & §2.2,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,
+median ||Delta_z_full||=4.26 in Methods §4.4,4.26,MANUSCRIPT.md Methods §4.4,SOURCE_MISSING,unknown,INCONSISTENT with observed 9.30 (K562) / 3.91 (RPE1) per F1; likely stale or a different aggregation
+shrinkage factor K562,~136-fold,MANUSCRIPT.md abstract & README headline,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,magnitude_ratio_mean 0.007343 => 1/0.007343 = 136.19; canonical value
+shrinkage factor RPE1,~207-fold,MANUSCRIPT.md §2.2 & README headline,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,magnitude_ratio_mean 0.004824 => 1/0.004824 = 207.29; canonical value
+shrinkage factor range legacy ~140-210,~140-210,MANUSCRIPT.md §2.2 legacy,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,SUPERSEDED by exact 136/207 (rounded upward variant)
+shrinkage factor ~150,~150,MANUSCRIPT.md abstract earlier,SOURCE_MISSING,unknown,legacy prose; not present in current manuscript after this pass
+N=200,200,MANUSCRIPT.md abstract & §2.2,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,dense J_true empirical null
+N=15,15,Table 1 Methods §4.6 Limitations,manuscript_figures/per_dataset_per_direction.json,reproduction/21_per_dataset_sigma_reruns.py,per-direction cos_k breakdown; INCONSISTENT with abstract's blanket N=200 claim
+N=200 all ensembles,200,MANUSCRIPT.md §2.2,manuscript_figures/per_dataset_recovery_all_ensembles.json,reproduction/25_all_ensemble_current_anchor_nulls.py,paired-bootstrap for all four ensembles
+cos_1 mean K562,0.32,MANUSCRIPT.md abstract & §2.2 tables,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,
+cos_1 mean K562 §2.4/Fig S18,0.18,MANUSCRIPT.md §2.4 & Fig S18,manuscript_figures/rejection_power.json or operator_recovery.json,reproduction/12 or 18,INCONSISTENT with 0.32 above; reviewer flag: S18 probably at sigma=0.266 or different c
+cos_1 mean RPE1,0.18,MANUSCRIPT.md abstract & §2.2,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,
+cos_1 K562 c=3.0,0.094,MANUSCRIPT.md §2.5 & Fig S18 & abstract,manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced: cos_1_mean=0.094 at shift=3.0 (K562); earlier 0.10 wording was a rounding error and is now corrected everywhere
+cos_1 K562 c=0.5,0.929,MANUSCRIPT.md §2.5 & abstract,manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced
+cos_1 K562 c=1.5,0.176,MANUSCRIPT.md §2.5,manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced; prose rounds to 0.18
+cos_1 RPE1 c=3.0,0.148,MANUSCRIPT.md §2.5 (new),manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced
+mean cond(JinvU) K562 c=0.5,362.4,MANUSCRIPT.md §2.5 & Fig S18,manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced
+mean cond(JinvU) K562 c=3.0,9.7,MANUSCRIPT.md §2.5 & Fig S18,manuscript_figures/stability_shift_sweep.json,reproduction/18_stability_shift_sweep.py,traced; drop 362.4/9.7 = 37.4x -> "40x" in prose rounded up; unified to "~37x"
+K562 cos_1 threshold range,0.095-0.181,MANUSCRIPT.md §3.4,SOURCE_MISSING,unknown,ensemble-conditional; source JSON not identified
+K562 cos_1 c=0.5,0.93,MANUSCRIPT.md abstract & §2.5,SOURCE_MISSING,reproduction/18_stability_shift_sweep.py,c-dependence claim
+z_SD K562,-0.05,MANUSCRIPT.md §2.3,manuscript_figures/per_dataset_recovery.json,reproduction/21_per_dataset_sigma_reruns.py,standardized separation
+paired-independent-SE z K562,-0.52,MANUSCRIPT.md §3.1,SOURCE_MISSING,unknown,recomputation cited but no script referenced
+mean-difference z K562 top-1,9.3,MANUSCRIPT.md §3.4 & README headline,SOURCE_MISSING,unknown,vs shuffled-U null; source not identified
+mean-difference z RPE1 top-1,5.2,MANUSCRIPT.md §3.4 & README headline,SOURCE_MISSING,unknown,
+AUC 0.68,0.68,MANUSCRIPT.md abstract,SOURCE_MISSING,unknown,single-draw discrimination
+power 15%,~15%,MANUSCRIPT.md abstract,SOURCE_MISSING,unknown,one-sided 5% power
+sigma_percell K562,2.61,MANUSCRIPT.md §2.6,manuscript_figures/operator_recovery.json,reproduction/13_operator_recovery.py,current anchor
+sigma_percell RPE1,2.68,MANUSCRIPT.md §2.6,manuscript_figures/operator_recovery.json,reproduction/13_operator_recovery.py,
+sigma_percell Jost,1.11,MANUSCRIPT.md §2.6,SOURCE_MISSING,unknown,per-cell noise for Jost; source not identified
+1.7M cells/guide projection,1.7M,MANUSCRIPT.md §3.4 & README,SOURCE_MISSING,unknown,extrapolation outside supplied grid; reviewer suggests cutting
+68k cells figure,68k,MANUSCRIPT.md §3.4,SOURCE_MISSING,unknown,related density projection
+sigma_data ~0.002,0.002,MANUSCRIPT.md §2.5 & §3.4,manuscript_figures/operator_recovery.json,reproduction/13_operator_recovery.py,now directly simulated (not extrapolated) per REVISION_NOTES.md Bucket B item 4
+K562 top SV energy frac,0.510,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's 51%
+RPE1 top SV energy frac,0.512,F4 recheck,results/recheck/F4_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,
+K562 between-target mean cos,+0.383,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's +0.38
+RPE1 between-target mean cos,+0.143,F4 recheck,results/recheck/F4_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's +0.14
+K562 median |cos(s_g u_g)|,0.115,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's 0.115
+RPE1 median |cos(s_g u_g)|,0.122,F4 recheck,results/recheck/F4_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's 0.122
+chance |cos| level,0.118,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,formula 2/(pi*sqrt(d-1)) at d=30; reviewer used 0.146 (unclear source)
+K562 rho real,1.114,F3 recheck,results/recheck/F3_K562_essential.json,reproduction/30_recheck_F1_F4.py,held_out_prediction_check
+RPE1 rho real,1.208,F3 recheck,results/recheck/F3_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,
+K562 rho matched-SNR linear sim,0.181,F3 recheck,results/recheck/F3_K562_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's ~0.18
+RPE1 rho matched-SNR linear sim,0.531,F3 recheck,results/recheck/F3_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,matches reviewer's ~0.54
+K562 rho after mean-proj removed,1.156,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,reviewer said ~1.12 (approximately unchanged); confirmed
+RPE1 rho after mean-proj removed,1.229,F4 recheck,results/recheck/F4_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,
+Jost U rank at rank_tol=1e-2,24,F5 recheck,results/recheck/F5_jost_gate.json,reproduction/33_recheck_F5_jost_rank.py,reviewer said 25 (at 1e-6 relative)
+Jost U rank at 1e-6 relative,25,F5 recheck,results/recheck/F5_jost_gate.json,reproduction/33_recheck_F5_jost_rank.py,matches reviewer's 25
+Jost n_targets,25,F5 recheck,results/recheck/F5_jost_gate.json,reproduction/33_recheck_F5_jost_rank.py,parsed from sgRNA names
+Jost n_sgRNA,124,F5 recheck,results/recheck/F5_jost_gate.json,reproduction/33_recheck_F5_jost_rank.py,
+Jost condition number (§2.7 claim: 55.6),55.6,MANUSCRIPT.md §2.7,SOURCE_MISSING,manuscript_figures/jost_matched_geometry_nulls.json?,DO_NOT_COMMIT: not reproduced. Traced candidates on the same U (see RECHECK_LOG.md F5): cond(U) rank_tol=1e-2 = 75.4; noise-free cond(S) rank_tol=1e-2 = 65.2; noisy cond(S) at sigma=0.036 = 3.38 (report.condition_number). None equal 55.6. Reviewer flagged that 3.38 is misleading because rank(U)<d hides behind noise-inflated retained S. §2.7 must re-derive on the identified subspace before quoting a number.
+test count expected: 33,33,README.md Verify the install,,pytest count,INCONSISTENT: current suite has 58 (was 56 before F5 gate fix); reviewer flag
+test count expected: 56,56,README.md and REVISION_NOTES.md,,pytest count,now 58 after gate fix
+source lines 3200+,3200+,MANUSCRIPT.md Introduction,src/anchorop/*.py,wc -l = 4166,INCONSISTENT: actual is 4166 (including __init__ and anchored.py); reviewer's ~4100 is right; update the claim
+version v0.1.0 in Code availability,v0.1.0,MANUSCRIPT.md Code availability,pyproject.toml,git tag,INCONSISTENT: tag does not exist; reviewer flag
+K562 ||W^T delta_g|| median,0.090,F4 recheck,results/recheck/F4_K562_essential.json,reproduction/30_recheck_F1_F4.py,per row of PCA loadings for HVG targets
+RPE1 ||W^T delta_g|| median,0.075,F4 recheck,results/recheck/F4_RPE1_essential.json,reproduction/30_recheck_F1_F4.py,
+K562 direction-only rho,1.087,RECHECK_LOG.md F4 & restructure plan,results/recheck/F_direction_only_rho.json,reproduction/38_direction_only_rho.py,column-normalized S and U; delta -0.027 vs baseline 1.114 => rules out reading (c)
+RPE1 direction-only rho,1.128,RECHECK_LOG.md F4 & restructure plan,results/recheck/F_direction_only_rho.json,reproduction/38_direction_only_rho.py,column-normalized S and U; delta -0.080 vs baseline 1.208 => rules out reading (c)
+K562 direction-only rho linear-sim control,0.169,RECHECK_LOG.md F4,results/recheck/F_direction_only_rho.json,reproduction/38_direction_only_rho.py,noise-free linear J on real U column-normalized => confirms estimator is not the floor
+RPE1 direction-only rho linear-sim control,0.172,RECHECK_LOG.md F4,results/recheck/F_direction_only_rho.json,reproduction/38_direction_only_rho.py,
+Jost sigma_per_sgRNA (PCA basis) bootstrap,0.066,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,within-sgRNA split-half in Jost's own PCA-on-controls basis; supersedes the 0.036 target-aggregate value and the 0.08 variance-scaling approximation for the per-sgRNA case
+Jost median ||S_col|| observed,1.44,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,d=30 PCA-on-controls basis; per-sgRNA
+Jost median ||S_col|| sim alpha=1,0.049,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,dense J = G - 1.5I
+Jost alpha_hat_S,29.6,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,data-matched signal scale (K562 is 369)
+Jost rho_real overall (guide-fold; leaked),0.666,RECHECK_LOG.md F3-Jost secondary,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,SUPERSEDED for central-claim use by the target-grouped-fold 2.43; kept as a within-target dose-interpolation metric only
+Jost rho direction-only,0.755,RECHECK_LOG.md F4 & F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,delta +0.089 vs baseline; rules out reading (c) under count-based kappa
+Jost matched-SNR linear-truth rho overall,0.220,RECHECK_LOG.md F3-Jost & restructure plan,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,N=15 replicates linear J on Jost's actual rank-24 U
+Jost matched-SNR linear-truth rho identified subspace,0.213,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,restricted to range(U) (24-dim)
+Jost real vs matched-linear-truth rho gap (SUPERSEDED),0.45,legacy claim (removed from plan),results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,SUPERSEDED: the 0.45 was computed on the guide-fold Jost ρ=0.666 which leaked sibling sgRNAs; target-grouped Jost gap is +1.73 (2.43 vs 0.70) and the qualitative "dataset-spread" story is out
+Jost n_guides_retained,122,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,of 124 sgRNAs input (2 dropped for min_cells or kappa filter)
+Jost n_targets,25,RECHECK_LOG.md F3-Jost & F5,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,
+Jost input_subspace_dim (PCA basis F3 rerun),25,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_pca_controls.json,reproduction/37_recheck_F3_jost_end_to_end.py,confirms F5's rank-25 finding under the corrected pipeline
+Jost rho_real target-grouped folds,2.43,RECHECK_LOG.md F3-Jost & restructure plan (central claim),results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,corrected value; all sgRNAs of a target held out together; SUPERSEDES the guide-level 0.666
+Jost rho_real guide folds (leaked),0.655,RECHECK_LOG.md F3-Jost (secondary metric),results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,within-target dose interpolation; NOT target-held-out; kept as secondary metric only
+Jost rho_real direction-only target-grouped,1.37,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,column-normalized S and U under target folds
+Jost linear-truth rho target-grouped matched-alpha,0.697,RECHECK_LOG.md F3-Jost & restructure plan,results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,linear J on Jost's rank-25 U at alpha_S=29.6; N=15
+Jost linear-truth rho target-grouped alpha=1,1.18,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,noise-dominated positive control
+Jost linear-truth rho direction-only target-grouped matched-alpha,0.829,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,column-normalization costs the linear truth substantially on Jost (unlike Replogle's 0.17 controls)
+Jost matched-linear-truth rel_diff mean,1.05,RECHECK_LOG.md F3-Jost (rel_diff calibration),results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,N=15; real Jost rel_diff 1.26 vs this 1.05 => preregistered 0.25 threshold unreachable regardless of ground truth (F3 trap)
+Jost raw-124-sgRNA U rank at rank_tol=1e-2,24,RECHECK_LOG.md F5,results/recheck/F5_jost_gate.json,reproduction/33_recheck_F5_jost_rank.py,before min-cells / min-kappa filter
+Jost retained-122-sgRNA U rank at rank_tol=1e-2,25,RECHECK_LOG.md F3-Jost,results/recheck/F3_Jost_grouped_folds.json,reproduction/37_and_39,after min-cells / min-kappa filter; both numbers refer to different Us
+K562 nested-CV real rho,0.963,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,target-grouped outer folds; inner CV picks TSVD rank; median picked rank 3
+RPE1 nested-CV real rho,1.001,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,median picked rank 1
+Jost d=30 nested-CV real rho,2.230,RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,d=30 is underdetermined; see d-sweep
+K562 nested-CV linear-truth rho,0.181,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,matched sigma=0.240 alpha_S=369; N=15
+RPE1 nested-CV linear-truth rho,0.529,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,matched sigma=0.352 alpha_S=199; N=15
+Jost d=30 nested-CV linear-truth rho,0.688,RECHECK_LOG.md F3 nested-CV,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,matched sigma=0.066 alpha_S=29.6; N=15
+Jost d=5 nested-CV real rho,1.18,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,comfortably overdetermined regime (20 train targets > d=5)
+Jost d=5 nested-CV linear-truth rho,0.32,MANUSCRIPT_RESTRUCTURE_PLAN.md central claim & RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,alpha_hat_S=24.7 at d=5
+Jost d=10 nested-CV real rho,1.21,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,
+Jost d=10 nested-CV linear-truth rho,0.83,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,alpha_hat_S=6.1 (low SNR at d=10)
+Jost d=15 nested-CV real rho,1.54,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,
+Jost d=15 nested-CV linear-truth rho,0.46,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,
+Jost d=20 nested-CV real rho,2.28,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,still overdetermined (20 train targets = d)
+Jost d=20 nested-CV linear-truth rho,0.53,RECHECK_LOG.md F3 d-sweep,results/recheck/F_jost_d_sweep_grouped.json,reproduction/41_jost_d_sweep_grouped.py,
+K562 random-200 real nested-CV rho,1.005,RECHECK_LOG.md F7 & MANUSCRIPT_RESTRUCTURE_PLAN.md,results/recheck/F7_K562_random200.json,reproduction/42_f7_k562_random200.py,seed=20260927 sampling 200 of 1740 qualifying targets; median picked rank 0
+K562 random-200 matched linear-truth rho,0.433,RECHECK_LOG.md F7 & MANUSCRIPT_RESTRUCTURE_PLAN.md,results/recheck/F7_K562_random200.json,reproduction/42_f7_k562_random200.py,alpha_hat_S=165.5 sigma=0.240 N=15
+K562 random-200 n_guides_retained,180,RECHECK_LOG.md F7,results/recheck/F7_K562_random200.json,reproduction/42_f7_k562_random200.py,vs 188 in top-200-by-count published pkl
+K562 random-200 alpha_hat_S,165.5,RECHECK_LOG.md F7,results/recheck/F7_K562_random200.json,reproduction/42_f7_k562_random200.py,lower than top-200's 369 (smaller-amplitude responses)
+K562 random-200 real minus linear gap,0.57,RECHECK_LOG.md F7,results/recheck/F7_K562_random200.json,reproduction/42_f7_k562_random200.py,vs 0.78 on top-200 (gap is smaller because SNR is lower)
+K562 real nested-CV rho 5-fold SD,0.019,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract & central claim,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,per_fold rho_fold min 0.944 max 0.991 n=5; used for the "0.96 (SD 0.02)" abstract phrasing
+RPE1 real nested-CV rho 5-fold SD,0.006,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,close to 1
+Jost d=30 real nested-CV rho 5-fold SD,0.002,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_nested_cv_rho.json,reproduction/40_nested_cv_rho.py,essentially at 1
+K562 interaction-only cosine matched-alpha,0.98,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_interaction_only_cosine.json,reproduction/43_interaction_only_cosine.py,alpha_S=369 sigma=0.240 N=200; A minus diag vs J minus diag Frobenius cosine
+K562 interaction-only cross-rep null shift1,0.003,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_interaction_only_cosine.json,reproduction/43_interaction_only_cosine.py,paired-diff mean 0.973
+RPE1 interaction-only cosine matched-alpha,0.74,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_interaction_only_cosine.json,reproduction/43_interaction_only_cosine.py,alpha_S=199 sigma=0.352 N=200; note reviewer's memory-based prediction was 0.59
+RPE1 interaction-only cross-rep null shift1,0.003,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract,results/recheck/F_interaction_only_cosine.json,reproduction/43_interaction_only_cosine.py,paired-diff mean 0.735
+Jost dose-interp guide-fold matched linear-truth rho,0.22,MANUSCRIPT_RESTRUCTURE_PLAN.md abstract (dose interp control),results/recheck/F3_Jost_grouped_folds.json,reproduction/39_recheck_jost_grouped_folds.py,at_matched_alpha_guide_folds mean; paired with real Jost guide-fold rho 0.66

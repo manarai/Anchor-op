@@ -1,0 +1,70 @@
+{
+  "seed": 20260927,
+  "rank_tol": 0.01,
+  "n_folds": 5,
+  "n_reps_lin_sim": 15,
+  "m_sgRNAs_retained": 122,
+  "n_targets": 25,
+  "rank_U_retained_at_1e-2_rel": 25,
+  "rank_U_retained_at_1e-6_rel": 25,
+  "rank_U_reconcile_note": "F5 recheck reported rank(U)=24 at rank_tol=1e-2 on the RAW 124-sgRNA U before the efficiency filter; F3-Jost reports rank=25 on the 122-retained-sgRNA U after the min_cells/min_kappa filter (this script also confirms rank=25 here). Both are correct on their respective Us; the numbers refer to different matrices, not to an internal inconsistency.",
+  "alpha_hat_S_jost": 29.58049395174211,
+  "sigma_used_for_lin_sim": 0.06555229270524932,
+  "rho_real": {
+    "guide_folds": 0.6554558739786841,
+    "target_grouped_folds": 2.4267775996603334,
+    "guide_folds_direction_only": 0.7740979418082417,
+    "target_grouped_folds_direction_only": 1.3667374606732292
+  },
+  "rho_linear_truth": {
+    "at_published_alpha_guide_folds": {
+      "n_reps": 15,
+      "alpha_S": 1.0,
+      "rho_mean": 1.141214656400449,
+      "rho_std": 0.02407342501351821,
+      "rel_diff_mean": 1.3871588773591932,
+      "rel_diff_std": 0.03532859078113067
+    },
+    "at_published_alpha_target_grouped_folds": {
+      "n_reps": 15,
+      "alpha_S": 1.0,
+      "rho_mean": 1.1815425554321037,
+      "rho_std": 0.020147741675180703,
+      "rel_diff_mean": 1.3871588773591932,
+      "rel_diff_std": 0.03532859078113067
+    },
+    "at_matched_alpha_guide_folds": {
+      "n_reps": 15,
+      "alpha_S": 29.58049395174211,
+      "rho_mean": 0.21758292715842056,
+      "rho_std": 0.00838639768749264,
+      "rel_diff_mean": 1.0488571549673842,
+      "rel_diff_std": 0.027013809924690747
+    },
+    "at_matched_alpha_target_grouped_folds": {
+      "n_reps": 15,
+      "alpha_S": 29.58049395174211,
+      "rho_mean": 0.6973692479086345,
+      "rho_std": 0.021512423538820245,
+      "rel_diff_mean": 1.0488571549673842,
+      "rel_diff_std": 0.027013809924690747
+    },
+    "at_matched_alpha_direction_only_guide_folds": {
+      "n_reps": 15,
+      "alpha_S": 29.58049395174211,
+      "rho_mean": 0.49198829651145803,
+      "rho_std": 0.021881886547161486
+    },
+    "at_matched_alpha_direction_only_target_grouped_folds": {
+      "n_reps": 15,
+      "alpha_S": 29.58049395174211,
+      "rho_mean": 0.828955944007571,
+      "rho_std": 0.025298181188829833
+    }
+  },
+  "rel_diff": {
+    "real": 1.2598934362005305,
+    "linear_truth_at_matched_alpha_mean": 1.0488571549673842,
+    "linear_truth_at_matched_alpha_std": 0.027013809924690747
+  }
+}

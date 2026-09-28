@@ -1,0 +1,41 @@
+{
+  "seed": 20260927,
+  "d": 30,
+  "rank_tol": 0.01,
+  "basis": "pca_controls",
+  "n_guides_retained": 122,
+  "input_subspace_dim": 25,
+  "effective_response_rank": 30,
+  "full_domain_identified": false,
+  "sigma_per_sgRNA_bootstrap_in_jost_basis": {
+    "n_guides_used": 122,
+    "sigma_per_sgRNA": 0.06555229270524932
+  },
+  "S_median_col_norm_observed": 1.4374511427311134,
+  "S_median_col_norm_sim_alpha1": 0.04859456184457854,
+  "alpha_hat_S_jost": 29.58049395174211,
+  "rho_real_overall": 0.665892505069933,
+  "rho_real_direction_only": 0.7551895270040614,
+  "rho_direction_only_delta_vs_baseline": 0.08929702193412836,
+  "rel_diff_real": 1.2598934362005305,
+  "linear_sim_at_published_alpha": {
+    "n_reps": 15,
+    "sigma": 0.06555229270524932,
+    "alpha_S": 1.0,
+    "rho_overall_mean": 1.13564152258331,
+    "rho_overall_std": 0.024354570598647627,
+    "rho_identified_subspace_mean": 1.1025060794654318,
+    "rho_identified_subspace_std": 0.023466916206187263,
+    "identified_dim": 25
+  },
+  "linear_sim_at_matched_alpha": {
+    "n_reps": 15,
+    "sigma": 0.06555229270524932,
+    "alpha_S": 29.58049395174211,
+    "rho_overall_mean": 0.21975702873191733,
+    "rho_overall_std": 0.015068252820125964,
+    "rho_identified_subspace_mean": 0.21268105294217915,
+    "rho_identified_subspace_std": 0.006198390729387776,
+    "identified_dim": 25
+  }
+}

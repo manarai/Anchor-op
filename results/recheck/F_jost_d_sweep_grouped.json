@@ -1,0 +1,129 @@
+{
+  "seed": 20260927,
+  "n_outer": 5,
+  "n_inner": 3,
+  "n_reps_lin_sim": 15,
+  "d_grid": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    30
+  ],
+  "sigma_per_sgRNA_jost": 0.06555229270524932,
+  "n_sgRNA": 122,
+  "n_targets": 25,
+  "d_full": 30,
+  "note": "d' truncation takes the first d' rows of S and U \u2014 equivalently, projects into the top d' PCs of the control basis. At each d', we compute alpha_hat_S from the median column norm of the truncated real S vs a fresh alpha=1 sim on the truncated U, so the matched linear-truth control tracks the same SNR at every d'.",
+  "results": {
+    "d=5": {
+      "d": 5,
+      "real_nested_cv": {
+        "rho": 1.0069555519938982,
+        "picked_rank_median": 0,
+        "picked_rank_min": 0,
+        "picked_rank_max": 2
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 24.659266607638795,
+        "rho_mean": 0.3198576488047486,
+        "rho_std": 0.03774991726276292,
+        "picked_rank_median_across_reps": 5,
+        "regime": "overdetermined"
+      },
+      "alpha_S_hat_at_this_d": 24.659266607638795
+    },
+    "d=10": {
+      "d": 10,
+      "real_nested_cv": {
+        "rho": 1.0015009376147082,
+        "picked_rank_median": 0,
+        "picked_rank_min": 0,
+        "picked_rank_max": 2
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 6.086723654223859,
+        "rho_mean": 0.8452885370669588,
+        "rho_std": 0.06718351642366442,
+        "picked_rank_median_across_reps": 8,
+        "regime": "overdetermined"
+      },
+      "alpha_S_hat_at_this_d": 6.086723654223859
+    },
+    "d=15": {
+      "d": 15,
+      "real_nested_cv": {
+        "rho": 0.9949142942171048,
+        "picked_rank_median": 2,
+        "picked_rank_min": 0,
+        "picked_rank_max": 3
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 43.69275635098313,
+        "rho_mean": 0.4629405242742832,
+        "rho_std": 0.03051280759151716,
+        "picked_rank_median_across_reps": 12,
+        "regime": "overdetermined"
+      },
+      "alpha_S_hat_at_this_d": 43.69275635098313
+    },
+    "d=20": {
+      "d": 20,
+      "real_nested_cv": {
+        "rho": 1.000561598463654,
+        "picked_rank_median": 0,
+        "picked_rank_min": 0,
+        "picked_rank_max": 1
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 36.60318967561525,
+        "rho_mean": 0.5456929905227551,
+        "rho_std": 0.061011568725716774,
+        "picked_rank_median_across_reps": 16,
+        "regime": "overdetermined"
+      },
+      "alpha_S_hat_at_this_d": 36.60318967561525
+    },
+    "d=25": {
+      "d": 25,
+      "real_nested_cv": {
+        "rho": 0.9981556736217705,
+        "picked_rank_median": 1,
+        "picked_rank_min": 0,
+        "picked_rank_max": 1
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 28.716706321777586,
+        "rho_mean": 0.6865506018075835,
+        "rho_std": 0.03732548349162379,
+        "picked_rank_median_across_reps": 16,
+        "regime": "underdetermined"
+      },
+      "alpha_S_hat_at_this_d": 28.716706321777586
+    },
+    "d=30": {
+      "d": 30,
+      "real_nested_cv": {
+        "rho": 0.9983417615049046,
+        "picked_rank_median": 0,
+        "picked_rank_min": 0,
+        "picked_rank_max": 1
+      },
+      "linear_truth_matched_nested_cv": {
+        "n_reps": 15,
+        "alpha_S_hat": 29.58049395174211,
+        "rho_mean": 0.7252786322739416,
+        "rho_std": 0.04254225406682116,
+        "picked_rank_median_across_reps": 16,
+        "regime": "underdetermined"
+      },
+      "alpha_S_hat_at_this_d": 29.58049395174211
+    }
+  }
+}

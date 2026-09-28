@@ -1,0 +1,24 @@
+{
+  "cell_line": "RPE1_essential",
+  "d": 30,
+  "n_targets": 153,
+  "n_guides_retained": 153,
+  "top_sv_energy_fraction": 0.5120393253336744,
+  "singular_values_top6": [
+    68.0231129664673,
+    35.75913205665208,
+    30.837345674341773,
+    23.384181305548452,
+    20.143500764444745,
+    17.1977035776622
+  ],
+  "between_target_mean_cos": 0.14280084145471747,
+  "median_abs_cos_s_u": 0.12210329977582618,
+  "chance_abs_cos": 0.11821732391999581,
+  "rho_real_original_measurement": 1.2084114941069417,
+  "rho_after_meanproj_removed": 1.229188518508581,
+  "targets_in_hvg_span": 153,
+  "targets_outside_hvg_span": 0,
+  "median_delta_g_projected_norm": 0.07514127188191552,
+  "median_response_norm_per_target": 3.909484323372112
+}

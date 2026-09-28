@@ -1,0 +1,248 @@
+{
+  "seed": 20260927,
+  "n_outer": 5,
+  "n_inner": 3,
+  "rank_grid": [
+    0,
+    1,
+    2,
+    3,
+    5,
+    8,
+    12,
+    16,
+    20,
+    25,
+    30
+  ],
+  "datasets": {
+    "K562_essential": {
+      "note": "one guide per target (target-grouped folds \u2261 guide-grouped folds)",
+      "n_sgRNA": 188,
+      "n_targets": 188,
+      "sigma": 0.24,
+      "alpha_S": 369.0,
+      "real_nested_cv": {
+        "rho_pooled": 0.9631813283902706,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 5,
+            "n_train": 150,
+            "n_test": 38,
+            "rho_fold": 0.9682919917952579
+          },
+          {
+            "fold": 1,
+            "picked_rank": 3,
+            "n_train": 150,
+            "n_test": 38,
+            "rho_fold": 0.9659079986121827
+          },
+          {
+            "fold": 2,
+            "picked_rank": 3,
+            "n_train": 150,
+            "n_test": 38,
+            "rho_fold": 0.9438186809310678
+          },
+          {
+            "fold": 3,
+            "picked_rank": 3,
+            "n_train": 151,
+            "n_test": 37,
+            "rho_fold": 0.9911705701739284
+          },
+          {
+            "fold": 4,
+            "picked_rank": 3,
+            "n_train": 151,
+            "n_test": 37,
+            "rho_fold": 0.9491160989635792
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 3,
+          "median": 3,
+          "max": 5
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.24,
+        "alpha_S": 369.0,
+        "rho_mean": 0.18107886435343337,
+        "rho_std": 0.0028226065721315414,
+        "picked_rank_median_summary": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30
+        ]
+      }
+    },
+    "RPE1_essential": {
+      "note": "one guide per target (target-grouped folds \u2261 guide-grouped folds)",
+      "n_sgRNA": 153,
+      "n_targets": 153,
+      "sigma": 0.352,
+      "alpha_S": 199.0,
+      "real_nested_cv": {
+        "rho_pooled": 1.0019175606097257,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 1,
+            "n_train": 122,
+            "n_test": 31,
+            "rho_fold": 1.0005964890798962
+          },
+          {
+            "fold": 1,
+            "picked_rank": 0,
+            "n_train": 122,
+            "n_test": 31,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 2,
+            "picked_rank": 1,
+            "n_train": 122,
+            "n_test": 31,
+            "rho_fold": 0.9995936616082881
+          },
+          {
+            "fold": 3,
+            "picked_rank": 1,
+            "n_train": 123,
+            "n_test": 30,
+            "rho_fold": 1.0008635943650108
+          },
+          {
+            "fold": 4,
+            "picked_rank": 2,
+            "n_train": 123,
+            "n_test": 30,
+            "rho_fold": 1.0130369779296515
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 0,
+          "median": 1,
+          "max": 2
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.352,
+        "alpha_S": 199.0,
+        "rho_mean": 0.5293982971477226,
+        "rho_std": 0.015703095749030734,
+        "picked_rank_median_summary": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30
+        ]
+      }
+    },
+    "Jost_2020": {
+      "note": "25 targets across 122 sgRNAs; siblings held out together",
+      "n_sgRNA": 122,
+      "n_targets": 25,
+      "sigma": 0.066,
+      "alpha_S": 29.6,
+      "real_nested_cv": {
+        "rho_pooled": 0.9983417615049046,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 0,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 1,
+            "picked_rank": 1,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 0.9975571238960551
+          },
+          {
+            "fold": 2,
+            "picked_rank": 0,
+            "n_train": 98,
+            "n_test": 24,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 3,
+            "picked_rank": 1,
+            "n_train": 99,
+            "n_test": 23,
+            "rho_fold": 0.9952910606031544
+          },
+          {
+            "fold": 4,
+            "picked_rank": 0,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 1.0
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 0,
+          "median": 0,
+          "max": 1
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.066,
+        "alpha_S": 29.6,
+        "rho_mean": 0.7181447909611356,
+        "rho_std": 0.027146700978643006,
+        "picked_rank_median_summary": [
+          12,
+          16,
+          16,
+          16,
+          12,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16,
+          16
+        ]
+      }
+    }
+  }
+}
