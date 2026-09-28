@@ -74,8 +74,8 @@ def spectral_wasserstein(left: np.ndarray, right: np.ndarray) -> float:
     Jordan-like matrix can therefore produce Wasserstein distances comparable
     to ``||J||_F`` itself. Report this metric alongside
     :func:`spectral_abscissa_difference` (a Lipschitz-stable scalar summary of
-    the biologically relevant hyperbolicity magnitude) and the projected
-    Frobenius operator error, not on its own.
+    the dominant growth/decay rate) and the projected Frobenius operator error,
+    not on its own.
     """
     left_eigenvalues = np.linalg.eigvals(to_dense(left))
     right_eigenvalues = np.linalg.eigvals(to_dense(right))
@@ -89,14 +89,16 @@ def spectral_wasserstein(left: np.ndarray, right: np.ndarray) -> float:
 def spectral_abscissa_difference(left: np.ndarray, right: np.ndarray) -> float:
     """Absolute difference of spectral abscissae ``|max Re(lambda(L)) - max Re(lambda(R))|``.
 
-    The spectral abscissa directly measures hyperbolicity magnitude (positive
-    means the operator has an unstable direction; negative means all directions
-    are damped). For diagonalizable matrices it varies smoothly with the
-    operator, so this scalar tolerates small measurement noise better than the
-    full-spectrum Wasserstein matching. For fully-defective operators (single
-    large Jordan block spanning the leading eigenvalue) every eigenvalue-based
-    metric is only Hölder-continuous; report both metrics in that regime.
-    Use this as the primary hyperbolicity comparison and reserve
+    The spectral abscissa classifies linearized stability (positive means the
+    operator has an unstable direction; negative means all directions are
+    damped). It is not a hyperbolicity test — a hyperbolic operator has no
+    eigenvalue on the imaginary axis, which the abscissa alone does not
+    determine. For diagonalizable matrices this scalar varies smoothly with the
+    operator and tolerates small measurement noise better than full-spectrum
+    Wasserstein matching. For fully-defective operators (single large Jordan
+    block spanning the leading eigenvalue) every eigenvalue-based metric is
+    only Hölder-continuous; report both metrics in that regime. Use this as
+    the primary stability-magnitude comparison and reserve
     :func:`spectral_wasserstein` as a supplementary summary.
     """
     left_max = float(np.max(np.linalg.eigvals(to_dense(left)).real))
@@ -104,8 +106,16 @@ def spectral_abscissa_difference(left: np.ndarray, right: np.ndarray) -> float:
     return float(abs(left_max - right_max))
 
 
-def hyperbolicity_sign(operator: np.ndarray, tolerance: float = 1e-8) -> int:
-    """Classify the sign of the largest real eigenvalue with a neutral tolerance."""
+def stability_sign(operator: np.ndarray, tolerance: float = 1e-8) -> int:
+    """Classify the sign of the spectral abscissa with a neutral tolerance.
+
+    Returns ``+1`` if the operator has at least one direction with positive
+    real part (linearly unstable), ``-1`` if every eigenvalue lies to the left
+    of ``-tolerance`` (linearly stable), and ``0`` on the marginal band. This
+    is a stability classifier, not a hyperbolicity classifier (hyperbolicity
+    requires that no eigenvalue sit on the imaginary axis, which the abscissa
+    sign does not decide).
+    """
     maximum = float(np.max(np.linalg.eigvals(to_dense(operator)).real))
     if maximum > tolerance:
         return 1
@@ -189,7 +199,7 @@ def _comparison_metrics(
             {
                 "spectral_wasserstein": float("nan"),
                 "spectral_abscissa_difference": float("nan"),
-                "hyperbolicity_agreement": float("nan"),
+                "stability_sign_agreement": float("nan"),
                 "subspace_angle": float("nan"),
             }
         )
@@ -203,8 +213,8 @@ def _comparison_metrics(
         {
             "spectral_wasserstein": spectral_wasserstein(inferred, measured_full),
             "spectral_abscissa_difference": spectral_abscissa_difference(inferred, measured_full),
-            "hyperbolicity_agreement": float(
-                hyperbolicity_sign(inferred) == hyperbolicity_sign(measured_full)
+            "stability_sign_agreement": float(
+                stability_sign(inferred) == stability_sign(measured_full)
             ),
             "subspace_angle": subspace_grassmann_distance(
                 inferred,
@@ -214,7 +224,7 @@ def _comparison_metrics(
         }
     )
     metadata["spectral_status"] = "computed: full effective response-domain rank identified"
-    metadata["primary_hyperbolicity_metric"] = (
+    metadata["primary_stability_metric"] = (
         "spectral_abscissa_difference (Lipschitz-stable); spectral_wasserstein is "
         "supplementary and can be unstable for non-normal J"
     )

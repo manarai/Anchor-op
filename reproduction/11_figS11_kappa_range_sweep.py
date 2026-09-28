@@ -3,8 +3,13 @@
 Under a random synthetic linear ground truth, sweeps κ distribution width from
 Replogle-shape narrow [0.05, 0.50] to Jost-shape wide [0.05, 1.00]. Also sweeps
 noise σ at fixed narrow and wide κ. Shows that wider κ improves the diagnostic's
-discriminative dynamic range at every noise level, but narrow κ never reaches
-the preregistered 0.25 threshold at any tested σ.
+discriminative dynamic range at every noise level. Two objectives are mixed in
+the panels and should be read separately: (i) the raw fit metric (`rel_diff` /
+held-out ρ), which the narrow-κ curve does dip below 0.25 for at very low σ
+(≈ 0.001) and cross well above 0.25 at Replogle-scale σ; and (ii) the
+prespecified nonlinear-detection criterion (§2.6), which narrow κ never meets
+at any tested σ because saturating nonlinearity is not separable from noise at
+that dynamic range. The two are not the same quantity.
 
 Reproduces Fig S11 in manuscript_figures/. No external data. Runtime ~2 min.
 """
@@ -152,7 +157,7 @@ ax.axvspan(0.20, 0.30, alpha=0.18, color="#2b6a3f", label="measured Replogle σ"
 ax.set_xscale("log")
 ax.set_xlabel("per-entry noise σ")
 ax.set_ylabel("held-out ρ")
-ax.set_title("(b) held-out ρ vs σ, at n=200: wider κ shifts curve down\nbut narrow-κ never reaches preregistered threshold")
+ax.set_title("(b) held-out ρ vs σ, at n=200: wider κ shifts the raw curve down;\nthe prespecified nonlinear-detection criterion (§2.6) is separate from ρ itself")
 ax.legend(loc="lower right", fontsize=8); ax.set_ylim(0, 1.45)
 
 fig.suptitle("Fig S11: κ-range sweep at fixed n=200 guides, d=30", fontsize=11.5, y=1.02)

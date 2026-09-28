@@ -103,9 +103,16 @@ class RegularizationPathEntry:
 class AnchorReport:
     """Mandatory identifiability and numerical-stability disclosure.
 
-    ``response_projector`` projects onto ``range(S)``. The measured action is
-    identified only on that domain. ``input_projector`` is retained separately
-    because it describes the perturbation directions, not the identified domain.
+    ``response_projector`` is always the hard orthogonal projector onto the
+    retained singular subspace of ``S``. Under TSVD it equals ``S S^+`` on
+    ``range(S)`` and the returned action equals ``J P_X = -U S^+`` exactly.
+    Under Tikhonov the same hard projector is stored, but the returned action
+    is a shrinkage estimate ``-U S^+_alpha`` in which retained directions are
+    further attenuated by filter factors ``sigma_i^2 / (sigma_i^2 + alpha) <
+    1``; it is not exactly ``J P_X``. ``is_hard_projector`` records which
+    regime the report was built under. ``input_projector`` is retained
+    separately because it describes the perturbation directions, not the
+    identified domain.
     """
 
     d: int
@@ -131,6 +138,7 @@ class AnchorReport:
     bootstrap_covariance: np.ndarray | None = None
     bootstrap_actions: np.ndarray | None = None
     notes: tuple[str, ...] = ()
+    is_hard_projector: bool = True
 
     def __post_init__(self) -> None:
         if self.d < 1:
@@ -187,6 +195,7 @@ class AnchorReport:
             "regularization_method": self.regularization_method,
             "selected_regularization": self.selected_regularization,
             "full_domain_identified": self.full_domain_identified,
+            "is_hard_projector": bool(self.is_hard_projector),
             "rank_tol": self.rank_tol,
             "singular_values": self.singular_values.tolist(),
             "retained_singular_directions": self.retained_singular_directions.tolist(),
@@ -235,9 +244,29 @@ class MeasuredOperator:
 
     @property
     def identified_action(self) -> np.ndarray:
-        """Return the experimentally identified map ``J P_X`` with its report verified."""
+        """Return the returned action matrix with its report verified.
+
+        Under TSVD (``report.is_hard_projector is True``) this is the
+        experimentally identified map ``J P_X = -U S^+``. Under Tikhonov
+        (``is_hard_projector is False``) it is a shrinkage estimate
+        ``-U S^+_alpha`` — retained singular directions are attenuated by
+        filter factors ``sigma_i^2 / (sigma_i^2 + alpha) < 1``, so this is
+        not exactly ``J P_X``. Use :attr:`regularized_action` when you want
+        that intent to be explicit in code and check ``report.is_hard_projector``
+        before treating the returned matrix as an unshrunk projected action.
+        """
         self._require_report()
         return self._identified_action.copy()
+
+    @property
+    def regularized_action(self) -> np.ndarray:
+        """Return the regularized action estimate (TSVD ``J P_X`` or Tikhonov shrinkage).
+
+        Alias of :attr:`identified_action` provided so downstream code can be
+        explicit about the shrinkage-vs-projector distinction without having
+        to inspect ``report.is_hard_projector``.
+        """
+        return self.identified_action
 
     @property
     def J(self) -> np.ndarray:

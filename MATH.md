@@ -54,6 +54,8 @@ $$\frac{dz}{dt} = J (z - z^*) + u_g, \qquad u_g = -\kappa_g \, W^T \delta_g \, z
 
 where `δ_g ∈ R^G` is the standard basis vector for gene *g* in gene space, so `W^T δ_g` is the *g*-th row of `W` — the gene's loadings across programs. The scalar `z_g*` is the baseline expression of gene *g*. The overall sign is chosen so that `u_g` represents a "reduction" in gene *g*'s pro-abundance drive.
 
+> **Convention note on `u_g` scale.** The implementation and MANUSCRIPT.md currently drop the `z_g*` factor and use `u_g = -κ_g Wᵀδ_g` (unit-loading input). The baseline-expression factor `z_g*` above matters *only up to a per-column rescaling* of `U`, but rescaling `U` changes the noise-free response `S_true = -J⁻¹U`, the response SNR at fixed noise σ, and every recovery threshold reported in §2 of the manuscript. Neither convention supplies a kinetic/time-scale factor that would make `U` commensurate with a `J` in units of inverse time; the numerical recovery experiment is internally reproducible either way but is not calibrated to a biological absolute-input scale. A sensitivity sweep across plausible per-column input rescalings (and reconciliation of code, manuscript, and this section on one convention) is outstanding — see the audit's Issue #1 and #2, and the "Bucket C" open decisions in `REVISION_NOTES.md`.
+
 (Section 4 discusses whether this additive-input model faithfully represents CRISPRi biology. Short answer: it is a linearization, and it is systematically biased for finite knockdown strength.)
 
 At the new fixed point,
@@ -152,6 +154,10 @@ $$S_{\alpha}^{+} = V_S \, \text{diag}\!\left(\frac{\sigma_i}{\sigma_i^2 + \alpha
 
 For `α → 0`, this recovers `S⁺` (truncated at rank_tol). For finite `α`, small singular directions are damped rather than truncated. The tool retains both regularization families and reports the full regularization path; a scientifically justified selection rule (generalized cross-validation for Tikhonov, `rank_tol`-based rank for TSVD) is applied by default.
 
+> **Projector vs shrinkage — non-trivial distinction.** The identity `J P_X = -U S⁺` with `P_X = S S⁺` is exact only for the Moore–Penrose pseudo-inverse and, equivalently, for hard TSVD on the retained singular subspace: there `P_X` is a genuine idempotent orthogonal projector, `P_X² = P_X`. For finite Tikhonov `α > 0`, `S S⁺_α = U_S \text{diag}(σ_i² / (σ_i² + α)) U_S^T` is a **shrinkage** operator — its filter factors lie in `(0, 1)` on retained directions and it is not idempotent. Consequently `-U S⁺_α` is a *regularized shrinkage estimate*, not exactly the projected action `J P_X`. The code (`identifiability.make_anchor_report` and `types.MeasuredOperator.identified_action`) records this distinction in the `report.is_hard_projector` flag: it is `True` under TSVD and `False` under Tikhonov, and the note attached to the report is method-aware. Downstream comparisons that rely on `J P_X` semantics (§2.2 of the manuscript's central full-operator claim) use TSVD; the Tikhonov path is available for stability diagnostics but should be interpreted as a shrunken estimate, not as `J P_X` itself.
+
+> **Basis convention.** All identities in this section assume an **orthonormal** program basis, `WᵀW = I`, so that `Wᵀ` is the coordinate encoder, Frobenius norms/cosines/singular thresholds/eigenvalues are basis-preserving, and the projected-action identity carries over verbatim. Generic NMF/cNMF loadings are non-orthogonal and scale-nonidentifiable, so numerical operations that use `Wᵀ` as an encoder without a dual basis or coordinate metric will not preserve these quantities under arbitrary program rescalings. Restricting the formal claims of §5 and the recovery-comparison metrics of the manuscript to orthonormal bases (PCA or an orthogonalized cNMF factor set) is the currently supported regime; developing an encoder/decoder or metric-aware extension for generic NMF/cNMF is future work.
+
 ---
 
 ## 4. Additive vs intervention perturbation model
@@ -229,19 +235,23 @@ On synthetic gene-space data with a realistic `d=8`, non-normal `J`, and known i
 - Frobenius error `‖J_hat - J‖_F / ‖J‖_F ≈ 0.45`
 - Leading real eigenvalue: `Re(λ_max)^true = -1.17` → additive-fit `Re(λ_max)^hat = -0.69`
 
-The bias systematically **shifts eigenvalues toward zero** relative to the intervention-model truth. Practical implication: an additive-input fit that reports `Re(λ_max) ≈ 0` (weakly hyperbolic or weakly stable) is *consistent with* a truly-damped operator whose eigenvalues were pushed toward the imaginary axis by the model mismatch. Sign claims near zero are the fragile regime.
+The bias systematically **shifts eigenvalues toward zero** relative to the intervention-model truth. Practical implication: an additive-input fit that reports `Re(λ_max) ≈ 0` (marginally stable in the linearized sense — hyperbolicity in the dynamical-systems sense is a separate no-eigenvalue-on-the-imaginary-axis condition and is not what this readout tests) is *consistent with* a truly-damped operator whose eigenvalues were pushed toward the imaginary axis by the model mismatch. Stability-sign claims near zero are the fragile regime.
 
 ---
 
-## 5. Program-space intervention model — under-identified from projected observations
+## 5. Program-space intervention model — under-identified from projected observations (constructed proposition)
 
-*This is a negative result: proves that a naive fix for the additive-vs-intervention mismatch does not work in the same coordinate system.*
+*This is a negative result under an explicit set of assumptions — a **constructed proposition**, not a general impossibility theorem for projected intervention models. It shows that one specific fix for the additive-vs-intervention mismatch (a rank-`d` gene-space Jacobian of the form `W J^prog Wᵀ` with tall orthonormal `W` and an in-span clamp response) is exactly under-identified from program-space observations. Stable orthogonal-complement dynamics, a nonorthogonal encoder/decoder, or a dual-basis coordinate treatment can change the result.*
 
-Setup: assume the gene-space Jacobian has the low-rank structure
+Setup (assumptions in force throughout §5):
 
-$$J^{\text{gene}} = W J^{\text{prog}} W^T,$$
+1. Tall orthonormal `W ∈ R^{G × d}`, `d < G`, `WᵀW = I`.
+2. The gene-space Jacobian has the low-rank structure
+   $$J^{\text{gene}} = W J^{\text{prog}} W^T,$$
+   with `J^prog` a `d × d` program-space Jacobian. This has rank at most `d`, so it has at least `G − d` zero eigenvalues and cannot be a locally asymptotically stable full-gene Jacobian on its own.
+3. The unclamped-gene response `Δz^{-g}` is assumed to lie in `span(W_{-g})`, i.e. `x = W_{-g} y` for some `y ∈ R^d`.
 
-where `W` is the (orthonormal) program basis and `J^prog` is the `d × d` program-space Jacobian. This is the natural assumption if the dynamics live in the span of the programs.
+Under these assumptions the projected intervention response is identically zero (§5.2). The algebra is valid; the assumptions are restrictive. Relaxing 1 (nonorthogonal encoder/decoder) or 2 (adding stable orthogonal-complement dynamics `J^gene = W J^prog Wᵀ + J⊥` with `J⊥` supported off `range(W)`) will generally produce a nonzero projected response, and the derivation is no longer a valid impossibility statement.
 
 ### 5.1 Intervention response with rank-`d` `J^gene`
 
@@ -295,9 +305,7 @@ All at machine precision, confirming the analytic result.
 
 ### 5.4 Implication
 
-The natural rank-`d` program-space intervention model is exactly under-identified from program-space observations. **You cannot fit an intervention-model `J^prog` from projected data alone under the standard rank assumption.**
-
-This is a genuine methodological obstruction, not a numerical accident: the projection commutes with the intervention geometry in exactly the way that annihilates the observable signal. Escaping this requires one of:
+Under the assumptions above (tall orthonormal `W`, `J^gene = W J^prog Wᵀ`, in-span clamp response), the program-space intervention model is exactly under-identified from program-space observations. **You cannot fit an intervention-model `J^prog` from projected data alone under this specific set of assumptions.** This is a constructed algebraic result, not a general impossibility theorem: adding stable orthogonal-complement dynamics or using a nonorthogonal encoder/decoder can restore identifiability. Under those assumptions specifically it is a genuine methodological obstruction — the projection commutes with the intervention geometry in exactly the way that annihilates the observable signal. Escaping it (whether by relaxing the model assumptions or by adding external constraints) requires one of:
 
 - Working in **full gene space** with a non-low-rank `J^gene` (adds `O(G²)` parameters — computationally hopeless at genome scale).
 - Adding **external constraints** (sparsity, ChIP-seq / ATAC-seq priors on which entries of `J` are nonzero).
@@ -406,7 +414,7 @@ Rather than fit arbitrary points as archetypes (Cutler-Breiman archetypal analys
 Advantages over Cutler-Breiman:
 - **Deterministic**: no local minima from alternating-optimization.
 - **Observed-extreme**: archetypes are actual measurements, not synthesized profiles.
-- **Fast**: `O(n · k)`.
+- **Fast**: `O(n · k · p)` for `p`-dimensional features (distance computation dominates each step). Reduces to `O(n · k)` only when `p` is treated as a constant, which is not appropriate for `d ≈ 30`+.
 
 Disadvantages: less flexible; may miss archetypes that lie in the *interior convex hull* rather than on the observed extremes. Acceptable trade-off for the current small-`n` (2-10 cell states) regime.
 
@@ -459,6 +467,6 @@ Taylor-expanding in `π` around `π = 0` (small dropout):
 For any `λ > 0`, the correction term `π (e^λ − 1)` is strictly positive, so **`λ̂ < λ` under zero-inflation**: `poisson_mle` systematically underestimates `λ` when there is a nonzero dropout probability independent of `λ`. Applied to `κ̂ = 1 − λ̂_pert / λ̂_ctrl`:
 
 - If dropout `π` is the same in perturbed and control conditions, both `λ̂` values are biased in the same direction. To first order in `π`, `λ̂_ctrl ≈ λ_ctrl − π(e^{λ_ctrl} − 1)` and `λ̂_pert ≈ λ_pert − π(e^{λ_pert} − 1)`. Since `λ_pert = (1 − κ) λ_ctrl < λ_ctrl`, the correction on `λ̂_ctrl` is larger in absolute terms, so `λ̂_pert / λ̂_ctrl > λ_pert / λ_ctrl = 1 − κ`, and therefore `κ̂ = 1 − λ̂_pert/λ̂_ctrl < κ`.
-- Contrast with `mean_ratio`: `E[Y_ctrl] = (1 − π) λ_ctrl`, `E[Y_pert] = (1 − π)(1 − κ) λ_ctrl`, so the ratio `E[Y_pert] / E[Y_ctrl] = 1 − κ` regardless of `π`. The dropout fraction cancels in the moment ratio, and `mean_ratio` is unbiased.
+- Contrast with `mean_ratio`: `E[Y_ctrl] = (1 − π) λ_ctrl`, `E[Y_pert] = (1 − π)(1 − κ) λ_ctrl`, so the *ratio-of-expectations* `E[Y_pert] / E[Y_ctrl] = 1 − κ` regardless of `π`. The dropout fraction cancels in the moment ratio, so the plug-in `mean_ratio` estimator is **consistent** for `κ` under independent zero-inflation (it converges to `1 − κ` as `n → ∞`). A ratio of finite sample means is not finite-sample unbiased in general — `E[Ȳ_pert / Ȳ_ctrl] ≠ E[Y_pert] / E[Y_ctrl]` when the denominator is random — but the estimator is consistent and asymptotically unbiased.
 
 This is the analytic underpinning for §2.3's recommendation of `mean_ratio` over `poisson_mle` on count data with dropout, and for the `poisson_mle` docstring in `src/anchorop/measure.py` noting that the estimator is "conservative under independent zero-inflation" (attributes some structural zeros to Poisson, understates `κ`).

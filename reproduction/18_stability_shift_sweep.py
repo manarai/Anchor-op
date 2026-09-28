@@ -120,14 +120,16 @@ for ax_i, metric in enumerate(["cos", "cos_1", "cos_5"]):
     elif metric == "cos_5":
         ax.axhline(1/np.sqrt(30*5), color="0.4", ls=":", lw=1)
         ax.axhline(-1/np.sqrt(30*5), color="0.4", ls=":", lw=1)
-    ax.set_xlabel("stability shift c (J = G − cI)")
+    ax.set_xlabel("diagonal shift c (J = G − cI); Hurwitz not guaranteed at low c")
     ax.set_ylabel(metric)
     ax.set_title(f"{metric} vs c")
     if ax_i == 0:
         ax.legend()
 
-fig.suptitle(f"Fig S18: J_true stability-shift sensitivity, N={N_REPS} per point, dense J_true, σ={SIGMA}.\n"
-             "Recovery conclusions constant across the swept range → not a shift artifact.",
+fig.suptitle(f"Fig S18: J_true diagonal-shift sensitivity, N={N_REPS} per point, dense-interaction + shift J_true, σ={SIGMA}.\n"
+             "Full-cosine conclusions descriptively robust across the swept range; top-mode alignment changes ~0.9→0.1 with c\n"
+             "(response gain, condition, and stability change simultaneously — confounded, not a clean stability-axis sensitivity;\n"
+             "-cI does not by itself guarantee Hurwitz stability at low c; unstable-draw fraction not reported).",
              fontsize=10.5, y=1.06)
 out = OUT_DIR / "figS18_stability_shift_sweep.png"
 fig.savefig(out, dpi=140, bbox_inches="tight")

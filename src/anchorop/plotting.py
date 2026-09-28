@@ -87,10 +87,12 @@ def plot_operator_heatmap(
         raise ValueError("measurement is missing its AnchorReport")
     if report.full_domain_identified:
         matrix = measurement.J
-        title = f"measured J  (d={report.d}, cond={report.condition_number:.1f})"
+        estimand_tag = "J·P_X" if report.is_hard_projector else "-U S⁺_α (shrunk)"
+        title = f"fitted A = {estimand_tag}  (d={report.d}, cond={report.condition_number:.1f})"
     else:
         matrix = measurement.identified_action
-        title = f"identified action J·P_X  ({report.effective_response_rank}/{report.d})"
+        estimand_tag = "J·P_X" if report.is_hard_projector else "-U S⁺_α (shrunk)"
+        title = f"fitted A = {estimand_tag}  ({report.effective_response_rank}/{report.d})"
     vmax = float(np.max(np.abs(matrix))) if matrix.size else 1.0
     im = ax.imshow(matrix, vmin=-vmax, vmax=vmax, cmap="RdBu_r", aspect="auto")
     ax.set_title(title)
@@ -130,7 +132,7 @@ def plot_eigenvalue_plane(
     ax.axvline(0, color="#999", lw=0.8)
     ax.axhline(0, color="#999", lw=0.8)
     ax.scatter(e.real, e.imag, marker="x", color="#c65a30", s=60)
-    tag = "HYPERBOLIC" if e.real.max() > 0 else "all damped"
+    tag = "unstable direction" if e.real.max() > 0 else "all damped"
     ax.set_title(f"eigenvalues (max Re λ = {e.real.max():+.3f}, {tag})")
     ax.set_xlabel("Re(λ)")
     ax.set_ylabel("Im(λ)")

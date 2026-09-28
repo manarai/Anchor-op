@@ -42,7 +42,7 @@ OUT_DIR.mkdir(exist_ok=True)
 
 N_REPS = 8
 SPARSITY = 0.02
-SIGMAS = [0.005, 0.025, 0.10, 0.266]
+SIGMAS = [0.005, 0.025, 0.10, 0.240, 0.266, 0.352]
 LAMBDAS = np.logspace(-3, 0, 12)
 
 
@@ -155,11 +155,13 @@ for cell_line, color in [("K562_essential", "#1f4e79"), ("RPE1_essential", "#c65
     tsvd_cos = {0.005: 0.71 if 'K562' in cell_line else 0.65,
                  0.025: 0.31 if 'K562' in cell_line else 0.25,
                  0.10: 0.075 if 'K562' in cell_line else 0.075,
-                 0.266: 0.05 if 'K562' in cell_line else 0.031}
+                 0.240: 0.05 if 'K562' in cell_line else 0.03,
+                 0.266: 0.05 if 'K562' in cell_line else 0.031,
+                 0.352: 0.04 if 'K562' in cell_line else 0.025}
     ax.plot(sig, [tsvd_cos.get(s, np.nan) for s in sig], "s--", color=color, lw=1, ms=6, alpha=0.6,
              label=f"{cell_line.replace('_essential','')} — TSVD (default)")
 ax.axhline(0, color="0.6", lw=0.5); ax.axhline(1.0, color="green", ls=":", lw=1)
-ax.axvspan(0.20, 0.30, alpha=0.15, color="#c65a30", label="measured Replogle σ")
+ax.axvspan(0.20, 0.36, alpha=0.15, color="#c65a30", label="K562 σ=0.240 – RPE1 σ=0.352")
 ax.set_xscale("symlog", linthresh=0.005)
 ax.set_xlabel(r"per-entry noise σ")
 ax.set_ylabel("cos(A, J_true) on 2%-sparse ground truth")
@@ -175,7 +177,7 @@ for cell_line, color in [("K562_essential", "#1f4e79"), ("RPE1_essential", "#c65
     rec = [e["support_recall_mean"] for e in r]
     ax.plot(sig, prec, "o-", color=color, lw=2, ms=7, label=f"{cell_line.replace('_essential','')} — precision")
     ax.plot(sig, rec, "s--", color=color, lw=1.5, ms=6, alpha=0.7, label=f"{cell_line.replace('_essential','')} — recall")
-ax.axvspan(0.20, 0.30, alpha=0.15, color="#c65a30")
+ax.axvspan(0.20, 0.36, alpha=0.15, color="#c65a30")
 ax.set_xscale("symlog", linthresh=0.005)
 ax.set_xlabel(r"per-entry noise σ")
 ax.set_ylabel("support recovery (precision, recall)")
@@ -192,9 +194,10 @@ print(f"\nwrote {out}")
 
 print("\n=== VERDICT ===")
 for cell_line in results:
-    at_measured = next(e for e in results[cell_line] if abs(e["sigma"] - 0.266) < 1e-6)
-    print(f"{cell_line} at measured σ=0.266 (2%-sparse J_true):")
-    print(f"  LASSO best cos = {at_measured['cosine_mean']:+.3f}  (TSVD baseline was ~0.05)")
+    anchor = 0.240 if cell_line == "K562_essential" else 0.352
+    at_measured = next(e for e in results[cell_line] if abs(e["sigma"] - anchor) < 1e-6)
+    print(f"{cell_line} at current anchor σ={anchor} (2%-sparse J_true):")
+    print(f"  LASSO best cos = {at_measured['cosine_mean']:+.3f}  (TSVD baseline was ~0.03–0.05)")
     print(f"  LASSO support: precision={at_measured['support_precision_mean']:.3f}, recall={at_measured['support_recall_mean']:.3f}")
     if at_measured["cosine_mean"] > 0.3:
         print(f"  → SPARSITY-AWARE FIT RECOVERS. §3.5 claim narrows to 'the tool's default TSVD fit'.")

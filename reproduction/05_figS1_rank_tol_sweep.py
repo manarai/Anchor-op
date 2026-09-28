@@ -2,8 +2,21 @@
 
 Loads the K562 aggregate, K562 essential, and RPE1 essential measurement
 bundles (if present), and reports effective_response_rank and condition
-number as rank_tol varies from 1e-3 to 5e-2. Highlights the preregistered
-1e-2 as the elbow.
+number of the retained response map (S) as rank_tol varies from 1e-3 to
+5e-2. Highlights the preregistered 1e-2 as the elbow in effective rank.
+
+The (b)-panel title says "condition number of J·P_X"; the actual quantity
+is the condition number of the retained S map (max sigma / min retained
+sigma), not of the returned action J·P_X. The two are numerically close on
+these bundles but conceptually distinct — see MATH.md §3 for the
+distinction. Jost 2020 is NOT included in this figure: only the three
+Replogle bundles are swept. Any manuscript caption that lists four datasets
+including Jost is stale.
+
+The 1e-2 cutoff is preregistered on the basis of typical Perturb-seq
+singular-value spectra (see MATH.md §3.3); this figure documents the rank
+transition but does not itself validate 1e-2 as noise-optimal against a
+downstream recovery/noise objective. That validation is future work.
 
 Requires pickled bundles from `../results/`. Runtime <30 s.
 """
@@ -67,7 +80,7 @@ for label, r in results.items():
     ax.semilogy(RANK_TOLS, r["conds"], "o-", color=COLORS.get(label, "black"), lw=2, ms=7, label=label)
 ax.axvline(1e-2, color="gray", ls=":", alpha=0.6, label="preregistered 1×10⁻²")
 ax.set_xscale("log"); ax.set_xlabel("rank_tol"); ax.set_ylabel("condition number (log)")
-ax.set_title("(b) condition number of J·P_X vs rank_tol")
+ax.set_title("(b) condition number of retained S map vs rank_tol")
 ax.legend(fontsize=9); ax.grid(True, alpha=0.3)
 
 fig.suptitle("Fig S1: rank_tol sensitivity sweep", fontsize=12, y=1.03)

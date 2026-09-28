@@ -235,7 +235,10 @@ def make_anchor_report(
     # a measurement-scale tolerance is not silently ignored on U and S.
     input_projector, input_rank, _ = orthogonal_projector(U, rtol=rank_tol)
     _, response_numerical_rank, _ = orthogonal_projector(S, rtol=rank_tol)
-    full_domain = selected.effective_rank == d
+    # Full-domain identification requires both a full-rank input encoding U and
+    # a full-rank retained response S. Noise can inflate the numerical rank of
+    # S past rank(U); the identified subspace is bounded by min(rank U, rank S).
+    full_domain = (selected.effective_rank == d) and (input_rank == d)
     covariance: np.ndarray | None = None
     if bootstrap_actions is not None:
         bootstrap_actions = np.asarray(bootstrap_actions, dtype=float)
@@ -244,7 +247,20 @@ def make_anchor_report(
                 bootstrap_actions.reshape(bootstrap_actions.shape[0], -1), rowvar=False
             )
     report_notes = list(notes)
-    report_notes.append("Measured object: J P_X = -U S^+, where P_X is response_projector.")
+    method_lower = method.lower()
+    is_hard_projector = method_lower == "tsvd"
+    if is_hard_projector:
+        report_notes.append(
+            "Measured object: J P_X = -U S^+, where P_X = response_projector is an "
+            "orthogonal projector onto the retained singular subspace (TSVD)."
+        )
+    else:
+        report_notes.append(
+            "Measured object: regularized action estimate -U S^+_alpha (Tikhonov). "
+            "response_projector is the hard projector onto the retained singular subspace, "
+            "but the returned action is NOT exactly J P_X: retained directions are further "
+            "shrunk by filter factors sigma_i^2 / (sigma_i^2 + alpha) < 1."
+        )
     if rank_tol is not None:
         report_notes.append(
             f"Identifiability tolerance: singular directions below {rank_tol:.2e} * sigma_max "
@@ -252,7 +268,8 @@ def make_anchor_report(
         )
     if not full_domain:
         report_notes.append(
-            "Partial identification: full spectra and hyperbolicity are blocked because the zero extension outside P_X is not measured."
+            "Partial identification: full spectra and stability-sign metrics are blocked "
+            "because the zero extension outside P_X is not measured."
         )
     return AnchorReport(
         d=d,
@@ -278,4 +295,5 @@ def make_anchor_report(
         bootstrap_covariance=covariance,
         bootstrap_actions=bootstrap_actions,
         notes=tuple(report_notes),
+        is_hard_projector=is_hard_projector,
     )

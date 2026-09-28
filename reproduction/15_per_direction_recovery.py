@@ -37,7 +37,7 @@ OUT_DIR.mkdir(exist_ok=True)
 RANK_TOL = 1e-2
 N_REPS = 15
 KS = [1, 2, 3, 5, 10, 15, 20, 25, 30]
-SIGMAS = [0.005, 0.025, 0.10, 0.266]
+SIGMAS = [0.005, 0.025, 0.10, 0.240, 0.266, 0.352]
 
 
 def draw_J(d, seed, structure="dense"):
@@ -120,7 +120,8 @@ for cell_line, filename in [("K562_essential", "k562_essential_measurement.pkl")
 
 # Figure: for each structure (4 cols), plot cos_k vs k at each σ (K562 solid, RPE1 dashed)
 fig, axes = plt.subplots(1, 4, figsize=(20, 4.7), constrained_layout=True)
-sig_colors = {0.005: "#5aa02c", 0.025: "#e0a020", 0.10: "#c65a30", 0.266: "#7a0d0d"}
+sig_colors = {0.005: "#5aa02c", 0.025: "#e0a020", 0.10: "#c65a30",
+              0.240: "#1f4e79", 0.266: "#7a0d0d", 0.352: "#a63946"}
 structure_titles = {
     "dense":         "dense J (Ginibre)",
     "sparse_10pct":  "sparse J (10%)",
@@ -155,7 +156,9 @@ for col, structure in enumerate(STRUCTURES):
 fig.suptitle(
     "Fig S15: Per-direction operator recovery restricted to the top-k best-illuminated singular directions of S.\n"
     "If cos_k rises above the global cosine at small k, the fit HAS direction content in the well-conditioned subspace.\n"
-    "K562 = solid + circles, RPE1 = dashed + squares. Colors = per-entry noise σ.",
+    "K562 = solid + circles, RPE1 = dashed + squares. Colors = per-entry noise σ (σ=0.266 retained for reproducibility;\n"
+    "current per-dataset anchors are K562 σ=0.240, RPE1 σ=0.352). Diagonal-shift c is NOT varied in this figure;\n"
+    "structure labels refer to the interaction term (each interaction is stacked on the common -cI diagonal shift).",
     fontsize=10.5, y=1.06)
 out = OUT_DIR / "figS15_per_direction_recovery.png"
 fig.savefig(out, dpi=140, bbox_inches="tight")
@@ -163,12 +166,12 @@ plt.close(fig)
 print(f"\nwrote {out}")
 
 print("\n" + "="*80)
-print("SUMMARY AT MEASURED σ = 0.266 (K562, all structures)")
+print("SUMMARY AT CURRENT K562 σ = 0.240 (K562, all structures)")
 print("="*80)
 for structure in STRUCTURES:
-    e = results["K562_essential"][structure]["0.266"]
+    e = results["K562_essential"][structure]["0.24"]
     top_k_str = ", ".join(f"k={k}:{e['cos_k_mean'][k]:+.3f}" for k in [1, 3, 5, 10, 30])
     print(f"  {structure:>16s}  {top_k_str}")
 print("\nInterpretation:")
 print("  cos_1 or cos_3 >> cos_30 → partial-positive: fit has direction content in top few directions")
-print("  cos_k flat across k    → no per-direction rescue; §3.5 global claim generalizes")
+print("  cos_k flat across k    → no per-direction rescue; §2.5 global claim generalizes")

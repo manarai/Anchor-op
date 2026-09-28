@@ -96,14 +96,23 @@ for cell_line, filename in BUNDLE.items():
     real_cos5 = np.array([cos_topk(A_fits[r], Js[r], S_trues[r], 5) for r in range(N_REPS_EMPNULL)])
     magr = np.array([np.linalg.norm(A_fits[r]) / np.linalg.norm(Js[r]) for r in range(N_REPS_EMPNULL)])
     frob = np.array([np.linalg.norm(A_fits[r] - Js[r]) / np.linalg.norm(Js[r]) for r in range(N_REPS_EMPNULL)])
-    # Cross-rep and shuffled-U nulls
+    # Cross-rep null: full expansion (10 shifts) for distribution stats + paired
+    # (shift = 1 only) arrays for the paired-bootstrap inference below.
     null_cross_cos, null_cross_cos1, null_cross_cos5 = [], [], []
+    paired_cross_cos, paired_cross_cos1, paired_cross_cos5 = [], [], []
     for shift in range(1, 11):
         for r in range(N_REPS_EMPNULL):
             rp = (r + shift) % N_REPS_EMPNULL
-            null_cross_cos.append(cos_full(A_fits[r], Js[rp]))
-            null_cross_cos1.append(cos_topk(A_fits[r], Js[rp], S_trues[rp], 1))
-            null_cross_cos5.append(cos_topk(A_fits[r], Js[rp], S_trues[rp], 5))
+            c  = cos_full(A_fits[r], Js[rp])
+            c1 = cos_topk(A_fits[r], Js[rp], S_trues[rp], 1)
+            c5 = cos_topk(A_fits[r], Js[rp], S_trues[rp], 5)
+            null_cross_cos.append(c)
+            null_cross_cos1.append(c1)
+            null_cross_cos5.append(c5)
+            if shift == 1:
+                paired_cross_cos.append(c)
+                paired_cross_cos1.append(c1)
+                paired_cross_cos5.append(c5)
     null_shuf_cos, null_shuf_cos1, null_shuf_cos5 = [], [], []
     rng_su = np.random.default_rng(SEED_BASE + 888)
     for r in range(N_REPS_EMPNULL):
@@ -114,8 +123,50 @@ for cell_line, filename in BUNDLE.items():
         null_shuf_cos.append(cos_full(A_sh, Js[r]))
         null_shuf_cos1.append(cos_topk(A_sh, Js[r], S_trues[r], 1))
         null_shuf_cos5.append(cos_topk(A_sh, Js[r], S_trues[r], 5))
-    def summ(real, nc, ns):
+    paired_cross_cos  = np.asarray(paired_cross_cos)
+    paired_cross_cos1 = np.asarray(paired_cross_cos1)
+    paired_cross_cos5 = np.asarray(paired_cross_cos5)
+    paired_shuf_cos   = np.asarray(null_shuf_cos)
+    paired_shuf_cos1  = np.asarray(null_shuf_cos1)
+    paired_shuf_cos5  = np.asarray(null_shuf_cos5)
+    def _paired_bootstrap(real_arr, null_paired_arr, n_boot=10_000, seed=42):
+        """Paired-difference bootstrap on shared simulated draws.
+
+        real_arr and null_paired_arr are aligned length-N vectors: entry r
+        pairs the fitted operator A_r's cosine against the true J_r (real)
+        and its cosine against a paired null (either J_{(r+1) mod N} for the
+        cross-replicate null, or J_r under a shuffled-U refit).
+
+        Returns mean paired difference, 95 % CI, one-sided p (paired diff
+        larger than 0), two-sided p, and Cohen's d_z (paired effect size).
+        """
+        n = len(real_arr)
+        diff = np.asarray(real_arr) - np.asarray(null_paired_arr)
+        rng = np.random.default_rng(seed)
+        idx = rng.integers(0, n, size=(n_boot, n))
+        boot_means = diff[idx].mean(axis=1)
+        ci_lo = float(np.percentile(boot_means, 2.5))
+        ci_hi = float(np.percentile(boot_means, 97.5))
+        mean_d = float(diff.mean())
+        # Two-sided empirical p from bootstrap; guard against 0.
+        p_greater = float(np.mean(boot_means <= 0.0))
+        p_less    = float(np.mean(boot_means >= 0.0))
+        p_two = 2.0 * min(p_greater, p_less)
+        p_two = max(p_two, 1.0 / n_boot)  # floor at simulation resolution
+        d_z = mean_d / max(float(np.std(diff, ddof=1)), 1e-30)
         return {
+            "mean_paired_diff": mean_d,
+            "ci95_lo": ci_lo,
+            "ci95_hi": ci_hi,
+            "p_two_sided": p_two,
+            "p_one_sided_diff_gt_0": 1.0 - p_greater,
+            "d_z": float(d_z),
+            "n_pairs": int(n),
+            "n_bootstrap": int(n_boot),
+        }
+
+    def summ(real, nc, ns, real_arr=None, cross_paired=None, shuf_paired=None):
+        out = {
             "real_mean": float(real.mean()), "real_std": float(real.std()),
             "real_SE": float(real.std() / np.sqrt(len(real))),
             "cross_rep_null_mean": float(np.mean(nc)), "cross_rep_null_std": float(np.std(nc)),
@@ -123,26 +174,37 @@ for cell_line, filename in BUNDLE.items():
             "z_per_rep_cross_rep": float((real.mean() - np.mean(nc)) / max(np.std(nc), 1e-9)),
             "z_per_rep_shuf_U": float((real.mean() - np.mean(ns)) / max(np.std(ns), 1e-9)),
         }
+        # Paired-bootstrap inference on shared simulated draws.
+        # Cross-replicate pairing uses shift=1 (primary paired null; the
+        # 10-shift expansion in nc is retained for distribution plots only).
+        if real_arr is not None and cross_paired is not None:
+            out["paired_bootstrap_cross_rep"] = _paired_bootstrap(real_arr, cross_paired)
+        if real_arr is not None and shuf_paired is not None:
+            out["paired_bootstrap_shuf_U"] = _paired_bootstrap(real_arr, shuf_paired)
+        return out
     row = {
         "sigma": sigma, "n_reps": N_REPS_EMPNULL, "n_guides": int(n_guides),
         "frob_rel_err_mean": float(frob.mean()), "frob_rel_err_std": float(frob.std()),
         "magnitude_ratio_mean": float(magr.mean()), "magnitude_ratio_std": float(magr.std()),
-        "cos_full": summ(real_cos, null_cross_cos, null_shuf_cos),
-        "cos_1":    summ(real_cos1, null_cross_cos1, null_shuf_cos1),
-        "cos_5":    summ(real_cos5, null_cross_cos5, null_shuf_cos5),
+        "cos_full": summ(real_cos,  null_cross_cos,  null_shuf_cos,
+                         real_arr=real_cos,  cross_paired=paired_cross_cos,  shuf_paired=paired_shuf_cos),
+        "cos_1":    summ(real_cos1, null_cross_cos1, null_shuf_cos1,
+                         real_arr=real_cos1, cross_paired=paired_cross_cos1, shuf_paired=paired_shuf_cos1),
+        "cos_5":    summ(real_cos5, null_cross_cos5, null_shuf_cos5,
+                         real_arr=real_cos5, cross_paired=paired_cross_cos5, shuf_paired=paired_shuf_cos5),
     }
-    print(f"  cos_full  real={row['cos_full']['real_mean']:+.4f} ± {row['cos_full']['real_std']:.3f}   "
-          f"cross-rep={row['cos_full']['cross_rep_null_mean']:+.4f}   "
-          f"shuf-U={row['cos_full']['shuf_U_null_mean']:+.4f}   "
-          f"z_cross={row['cos_full']['z_per_rep_cross_rep']:+.2f}")
-    print(f"  cos_1     real={row['cos_1']['real_mean']:+.4f} ± {row['cos_1']['real_std']:.3f}   "
-          f"cross-rep={row['cos_1']['cross_rep_null_mean']:+.4f}   "
-          f"shuf-U={row['cos_1']['shuf_U_null_mean']:+.4f}   "
-          f"z_cross={row['cos_1']['z_per_rep_cross_rep']:+.2f}")
-    print(f"  cos_5     real={row['cos_5']['real_mean']:+.4f} ± {row['cos_5']['real_std']:.3f}   "
-          f"cross-rep={row['cos_5']['cross_rep_null_mean']:+.4f}   "
-          f"shuf-U={row['cos_5']['shuf_U_null_mean']:+.4f}   "
-          f"z_cross={row['cos_5']['z_per_rep_cross_rep']:+.2f}")
+    def _fmt_pb(pb):
+        p_str = f"p<{1/pb['n_bootstrap']:g}" if pb["p_two_sided"] <= 1/pb["n_bootstrap"] else f"p={pb['p_two_sided']:.4f}"
+        return (f"paired-diff={pb['mean_paired_diff']:+.4f} "
+                f"[95% CI {pb['ci95_lo']:+.4f},{pb['ci95_hi']:+.4f}] "
+                f"d_z={pb['d_z']:+.3f} {p_str}")
+    for name in ("cos_full", "cos_1", "cos_5"):
+        s = row[name]
+        print(f"  {name:>8s} real={s['real_mean']:+.4f} ± {s['real_std']:.3f}   "
+              f"cross-rep={s['cross_rep_null_mean']:+.4f}   shuf-U={s['shuf_U_null_mean']:+.4f}   "
+              f"z_cross={s['z_per_rep_cross_rep']:+.2f}")
+        print(f"           vs cross-rep: {_fmt_pb(s['paired_bootstrap_cross_rep'])}")
+        print(f"           vs shuf-U:    {_fmt_pb(s['paired_bootstrap_shuf_U'])}")
     print(f"  ‖A-J‖/‖J‖ = {row['frob_rel_err_mean']:.4f}   ‖A‖/‖J‖ = {row['magnitude_ratio_mean']:.4f}")
     recovery[cell_line] = row
 

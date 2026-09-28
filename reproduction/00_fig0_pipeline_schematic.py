@@ -88,12 +88,12 @@ arrow(ax, (4.5, 2.2), (4.5, 1.6), text="yes", color="#2b6a3f")
 # Linearity diagnostics with power-analysis note
 box(ax, (2, 0.4), 5, 1.0,
     "Linearity diagnostics run (bin-split + held-out ρ);\n"
-    "interpret against matched-scale power analysis (see §3.5–3.6)",
+    "interpret against matched-geometry power analysis (see §2.5–2.6)",
     fc="#e5f3ec", ec="#2b6a3f", fs=8)
 
 # Right column: downstream analyses (gated on both stages)
 box(ax, (9, 4.4), 4.5, 1.2,
-    "Downstream analyses:\neigenvalues, hyperbolicity,\narchetypes, cross-tool benchmark",
+    "Downstream analyses:\neigenvalues, stability sign,\narchetypes, cross-tool benchmark",
     fc="#eef4fa", ec="#1f4e79", fs=9)
 ax.text(11.25, 3.6, "requires: full identifiability\nAND independent linearity evidence\nbeyond current diagnostics' power",
         ha="center", va="center", fontsize=7.5, color="#666", style="italic")

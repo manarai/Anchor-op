@@ -11,9 +11,9 @@ from .archetypes import fit_archetypes, spectral_summary, transfer_test
 from .compare import (
     compare,
     comparison_table,
-    hyperbolicity_sign,
     spectral_abscissa_difference,
     spectral_wasserstein,
+    stability_sign,
 )
 from .identifiability import regularization_path, regularized_pseudoinverse
 from .io import load_operator, validate_operator
@@ -72,7 +72,6 @@ __all__ = [
     "fit_archetypes",
     "fit_programs",
     "held_out_prediction_check",
-    "hyperbolicity_sign",
     "linearity_check",
     "load_operator",
     "load_replogle_h5ad",
@@ -85,6 +84,7 @@ __all__ = [
     "spectral_abscissa_difference",
     "spectral_summary",
     "spectral_wasserstein",
+    "stability_sign",
     "transfer_test",
     "within_target_dose_response",
     "validate_operator",

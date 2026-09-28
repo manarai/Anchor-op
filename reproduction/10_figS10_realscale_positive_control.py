@@ -5,8 +5,10 @@ linear ground truth with matched (d, n_guides), and simulates observed S under
 a range of Gaussian noise levels. Reports rel_diff, null_median, and held-out
 ρ vs σ, overlaying observed Replogle values as horizontal lines.
 
-Establishes: at measured σ ≈ 0.266, synthetic linear reproduces Replogle
-observations within 0.05 — Replogle is consistent with linear at its scale.
+Establishes: at each dataset's conditional response-noise anchor (K562 σ=0.240,
+RPE1 σ=0.352 from Fig. S19; older combined anchor σ=0.266 retained on the
+sweep grid for continuity), the synthetic linear system reproduces Replogle
+observations within ~0.05 — Replogle is consistent with linear at its scale.
 
 Requires the pickled measurement bundles from `../results/`. Runtime ~3 min.
 """
@@ -98,7 +100,7 @@ for cell_line, filename in [("K562_essential", "k562_essential_measurement.pkl")
     print(f"  REAL rel_diff={real_lin.relative_difference:.3f}, null_median={real_lin.null_median:.3f}, ρ={real_rho:.3f}")
 
     syn = []
-    for sigma in [0.001, 0.005, 0.01, 0.025, 0.05, 0.10, 0.15, 0.20, 0.266, 0.30]:
+    for sigma in [0.001, 0.005, 0.01, 0.025, 0.05, 0.10, 0.15, 0.20, 0.240, 0.266, 0.30, 0.352]:
         rng_j = np.random.default_rng(20260810 + hash(cell_line) % 1000)
         G = rng_j.normal(size=(d, d)) / np.sqrt(d)
         J_true = G - 1.5 * np.eye(d)

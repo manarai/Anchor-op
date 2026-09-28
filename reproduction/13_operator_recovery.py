@@ -1,22 +1,35 @@
-"""Fig S13: operator-recovery check at Replogle-matched scale.
+"""Fig S13: operator-recovery check at Replogle-matched geometry.
 
-The paper's §3.3–3.4 report full-rank identification (K562 188/200, RPE1 153/200
-guides at d=30), and §3.5–3.6 show the linearity diagnostics are noise-limited
+The paper's §2.1 reports full-rank identification (K562 188/200, RPE1 153/200
+guides at d=30), and §2.5-2.6 show the linearity diagnostics are noise-limited
 at that scale. A reviewer's follow-up question: even setting linearity aside,
 is the reported operator ITSELF recoverable at published Perturb-seq scale?
 
 This script answers it directly. Under a synthetic LINEAR ground truth J drawn
 fresh for each replicate, using each Replogle cell line's real U and real κ,
-adds per-entry Gaussian noise at σ = 0.266 (measured on K562 essential; §3.5),
-computes the fit `A = -U · pinv(S)`, and reports:
+adds per-entry Gaussian noise at each dataset's conditional response-noise
+anchor (K562 σ=0.240, RPE1 σ=0.352 from within-guide split-half bootstrap;
+§4.4), computes the fit `A = -U · pinv(S)`, and reports:
 
   ||A - J_true||_F / ||J_true||_F                (Frobenius recovery)
+  cos(A, J_true)                                 (scale-invariant direction)
+  ||A||/||J||                                    (magnitude ratio)
   |max Re(λ_A) - max Re(λ_J_true)|               (spectral abscissa error)
-  median |Re(λ_A) - Re(λ_J_true)| / median|Re(λ_J_true)|   (eigenvalue drift)
 
-Sweeps σ ∈ {0, 0.01, 0.05, 0.1, 0.266, 0.5} at each cell line's real (d, n_guides,
-U, κ), 15 replicates per point. Also translates σ → required cells/guide via
-σ = σ_percell/√n_cells with σ_percell ≈ 2.2.
+Sweeps σ at each cell line's real (d, n_guides, U, κ) with N_REPS=15 replicates
+per point. σ=0 is a NOISELESS POSITIVE CONTROL: recovery must be exact, so we
+use eps-based numerical rank (rank_tol=None) at σ=0, not the preregistered 1e-2
+measurement-scale threshold. For σ > 0 we use rank_tol=1e-2 as preregistered.
+Rationale: at σ=0 there is no noise for the 1% threshold to filter out, so
+truncating retained response directions there would only reflect ill-conditioned
+draws (which do occur — a sparse-10% draw with cond(J) ~ 370 produces
+σ_max(S) ~ 6 while other singular values sit at ~0.01–0.23, and the 1% threshold
+drops 22 of 30 directions). At σ > 0 the threshold correctly reflects that
+below-noise directions are not identified.
+
+σ → cells/guide conversion uses per-dataset σ_percell values (K562 2.61, RPE1
+2.68, Jost 1.11) via n = (σ_percell / σ_target)². The older global value of 2.2
+is superseded.
 
 Requires pickled measurement bundles from `../results/`. Runtime ~3 min.
 """
@@ -32,10 +45,16 @@ RESULTS = Path(__file__).resolve().parents[1] / "results"
 OUT_DIR = Path(__file__).resolve().parents[1] / "manuscript_figures"
 OUT_DIR.mkdir(exist_ok=True)
 
-RANK_TOL = 1e-2
-SIGMA_PERCELL = 2.2
+RANK_TOL_MEASUREMENT = 1e-2  # preregistered for σ > 0
 N_REPS = 15
-SIGMAS = [0.0, 0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.20, 0.266, 0.35, 0.5]
+# σ=0.002 is included so the ~1.7M cells/guide projection cited in §2.5 is
+# a directly simulated point rather than an extrapolation.
+SIGMAS = [0.0, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.20, 0.240, 0.266, 0.352, 0.5]
+# Per-dataset σ_percell from the within-guide split-half bootstrap (§4.4, Fig. S19).
+SIGMA_PERCELL_BY_DATASET = {
+    "K562_essential": 2.61,
+    "RPE1_essential": 2.68,
+}
 
 
 def draw_J(d, seed, structure="dense"):
@@ -62,8 +81,12 @@ def draw_J(d, seed, structure="dense"):
     raise ValueError(structure)
 
 
-def fit_operator(S, U, rank_tol=RANK_TOL):
-    """A = -U · pinv(S) via anchor-op's regularized TSVD path."""
+def fit_operator(S, U, rank_tol):
+    """A = -U · pinv(S) via anchor-op's regularized TSVD path.
+
+    Pass ``rank_tol=None`` for the σ=0 noiseless positive control (eps-based
+    numerical rank); pass ``rank_tol=RANK_TOL_MEASUREMENT`` for σ > 0.
+    """
     S_pinv, *_ = regularized_pseudoinverse(
         S, method="tsvd", parameter="path", rank_tol=rank_tol
     )
@@ -123,20 +146,26 @@ for cell_line, filename in [("K562_essential", "k562_essential_measurement.pkl")
     print(f"\n{'=' * 70}")
     print(f"{cell_line} (d={d}, n_guides={n_guides})")
     print('=' * 70)
+    sigma_percell = SIGMA_PERCELL_BY_DATASET[cell_line]
     per_line = {}
     for structure in STRUCTURES:
         print(f"\n  ground-truth J structure: {structure}")
         print(f"  {'σ':>8s} {'cells/guide':>13s}   {'‖A-J‖/‖J‖ mean±std':>25s}   {'|Δ abscissa|':>15s}   {'real eig drift':>18s}")
         rows = []
         for sigma in SIGMAS:
-            n_cells = float("inf") if sigma == 0 else (SIGMA_PERCELL / sigma) ** 2
+            n_cells = float("inf") if sigma == 0 else (sigma_percell / sigma) ** 2
+            # Noiseless positive control uses eps-based numerical rank so
+            # occasional ill-conditioned draws don't trigger the measurement-
+            # scale 1% truncation (which would be inappropriate at zero noise
+            # and inflate the positive-control failure rate).
+            rank_tol = None if sigma == 0.0 else RANK_TOL_MEASUREMENT
             frobs, coss, resc, magr, absc = [], [], [], [], []
             for rep in range(N_REPS):
                 J_true = draw_J(d, seed=20260810 + rep, structure=structure)
                 S_true = -np.linalg.solve(J_true, U_real)
                 rng_noise = np.random.default_rng(rep + 10000)
                 S_obs = S_true + sigma * rng_noise.normal(size=S_true.shape)
-                A_fit = fit_operator(S_obs, U_real)
+                A_fit = fit_operator(S_obs, U_real, rank_tol=rank_tol)
                 met = recovery_metrics(A_fit, J_true)
                 frobs.append(met["frob_rel_err"])
                 coss.append(met["cosine"])
@@ -145,6 +174,8 @@ for cell_line, filename in [("K562_essential", "k562_essential_measurement.pkl")
                 absc.append(met["abscissa_err"])
             entry = {
                 "sigma": sigma,
+                "sigma_percell": sigma_percell,
+                "rank_tol": None if rank_tol is None else float(rank_tol),
                 "cells_per_guide": None if not np.isfinite(n_cells) else float(n_cells),
                 "frob_rel_err_mean": float(np.mean(frobs)),
                 "frob_rel_err_std": float(np.std(frobs)),
@@ -238,7 +269,11 @@ for cell_line in results:
     print(f"  {'structure':>16s}  {'σ':>7s}   {'‖A-J‖/‖J‖':>10s}  {'cos':>8s}  {'best-rescaled':>13s}  {'‖A‖/‖J‖':>10s}")
     for structure in STRUCTURES:
         r = results[cell_line][structure]
-        for sigma_target in [0.005, 0.025, 0.266]:
+        # Report at σ=0 (positive control), σ=0.005 (lowest nonzero grid point),
+        # and the dataset's own conditional response-noise anchor.
+        anchor = 0.240 if cell_line == "K562_essential" else 0.352
+        summary_sigmas = [0.0, 0.005, anchor]
+        for sigma_target in summary_sigmas:
             e = next(x for x in r if abs(x["sigma"] - sigma_target) < 1e-6)
             print(f"  {structure:>16s}  σ={sigma_target:.3f}   "
                   f"{e['frob_rel_err_mean']:>10.3f}  "
@@ -258,7 +293,7 @@ noise_free = next(e for e in r if e["sigma"] == 0)
 J_rep = draw_J(30, seed=20260810, structure="dense")
 signal_per_entry_std = float(np.std(J_rep))
 print(f"synthetic J_true per-entry std: {signal_per_entry_std:.3f}")
-print(f"measured σ (per Δz entry, from within-guide bootstrap): 0.266")
+print(f"K562 conditional response-noise anchor: 0.240; RPE1: 0.352 (§4.4, Fig. S19).")
 print(f"→ noise-to-signal ratio at operator entry scale is NOT directly comparable")
 print(f"  because operator entries are estimated from d² parameters × n·d observations.")
 print(f"  What matters: cosine at measured σ (above). If cosine ≈ 0, no direction info regardless of magnitude.")

@@ -186,7 +186,7 @@ def estimate_knockdown_efficiency_poisson_mle(
     Under the Poisson observation model `X ~ Poisson(λ)`,
     `Pr[X > 0] = 1 − exp(−λ)`, so `λ̂ = −log(1 − detection_rate)` is the moment
     estimator of `λ` from the binary indicator `X > 0`. This estimator
-    - is unbiased for `κ` at low-to-moderate baseline expression (the regime
+    - is consistent for `κ` at low-to-moderate baseline expression (the regime
       where :func:`estimate_knockdown_efficiency` spikes to 1.0 due to dropout);
     - degrades gracefully at very low expression (where few cells detect) and
       near saturation (where `1 − detection_rate` approaches zero);
@@ -269,8 +269,10 @@ def _resolve_estimator(name: str, X: np.ndarray) -> str:
     Explicit choices pass through unchanged. ``"auto"`` inspects ``X`` and
     routes to ``"detection_rate"`` on pre-scaled residual matrices (where
     ``mean_ratio`` is undefined because controls are centered near zero) and
-    to ``"mean_ratio"`` on count-like matrices (where the mean_ratio MLE is
-    unbiased under Poisson and Poisson-with-dropout observation).
+    to ``"mean_ratio"`` on count-like matrices (where the mean_ratio moment
+    estimator is consistent / asymptotically unbiased under Poisson and
+    independent-zero-inflation observation; the ratio of sample means is not
+    finite-sample unbiased in general).
     """
     if name != "auto":
         return name
@@ -343,15 +345,18 @@ def build_guide_responses(
 
     - ``"auto"`` (default): inspect the expression matrix and route by format.
       Count-like data (all-nonnegative, or with a dropout-shaped zero mass) →
-      ``"mean_ratio"``, which is the unbiased MLE of ``κ = 1 − E[X_pert]/
-      E[X_ctrl]`` under Poisson and Poisson-with-dropout observation. Pre-
-      scaled residuals (contain meaningful negative values, e.g. z-scored
-      Perturb-seq h5ads such as Replogle 2022 essential-gene) → ``"detection_
-      rate"``, which is a signed distributional-shift statistic on that data
-      class (see below).
-    - ``"mean_ratio"``: classical ``1 − mean_pert / mean_ctrl``. Sample-moment
-      MLE under Poisson; still unbiased under independent zero-inflation
-      (scRNA-seq dropout) because the dropout fraction cancels in the ratio.
+      ``"mean_ratio"``, a consistent / asymptotically unbiased sample-moment
+      estimator of ``κ = 1 − E[X_pert]/E[X_ctrl]`` under Poisson and
+      independent-zero-inflation observation (the ratio of sample means is
+      not finite-sample unbiased in general). Pre-scaled residuals (contain
+      meaningful negative values, e.g. z-scored Perturb-seq h5ads such as
+      Replogle 2022 essential-gene) → ``"detection_rate"``, which is a signed
+      distributional-shift statistic on that data class (see below); it is
+      NOT a fractional-knockdown estimator.
+    - ``"mean_ratio"``: classical ``1 − mean_pert / mean_ctrl``. Consistent
+      / asymptotically unbiased sample-moment estimator under Poisson; still
+      consistent under independent zero-inflation (scRNA-seq dropout) because
+      the dropout fraction cancels asymptotically in the ratio.
       Undefined on data where the control mean is not bounded away from zero
       (pre-scaled residuals). Combine with ``min_control_detection_rate`` to
       drop information-limited targets rather than silently spiking to 0 or 1.
@@ -359,13 +364,18 @@ def build_guide_responses(
       detection)``. Equivalent to mean_ratio under pure Poisson; biased
       downward under independent zero-inflation. Included for completeness.
     - ``"detection_rate"``: the raw shift ``Pr[X_ctrl>0] − Pr[X_pert>0]``. On
-      count data this is NOT an unbiased estimator of ``κ`` — it is a bounded
-      shift diagnostic that scales with baseline expression. On pre-scaled
-      residuals (where controls have mean ≈ 0 by construction), it recovers a
-      valid signed distributional-shift statistic monotone in the perturbation
+      count data this is NOT an estimator of ``κ`` — it is a bounded shift
+      diagnostic that scales with baseline expression. On pre-scaled residuals
+      (where controls have mean ≈ 0 by construction), it recovers a valid
+      **signed distributional-shift score** monotone in the perturbation
       shift ``Δ``: analytically ``0.5 − Φ(Δ/σ_ctrl)`` under a Gaussian
-      approximation. This is what makes it the ``auto`` choice on pre-scaled
-      data.
+      approximation. That score is **not** fractional target-transcript
+      knockdown; it is a bounded, nonlinear, baseline-dependent proxy that
+      the ``auto`` router uses when a count-based ``κ`` moment estimator is
+      undefined. Downstream ``U = -κ_g Wᵀ δ_g`` therefore encodes a proxy
+      perturbation on residual data. Cross-dataset comparisons that treat
+      Replogle-routed and Jost-style raw-count ``κ`` values on a common
+      fractional scale require explicit calibration.
 
     ``min_control_detection_rate`` (default 0.05) drops any target whose
     control fraction of positive values is below the threshold. On count data

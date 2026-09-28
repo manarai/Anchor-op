@@ -32,7 +32,7 @@ def test_ACCEPTANCE_exact_operator_beats_declared_nulls() -> None:
     assert result.metrics["operator_relative_error"] == pytest.approx(0.0, abs=1e-10)
     assert result.metrics["equation_relative_residual"] == pytest.approx(0.0, abs=1e-10)
     assert result.metrics["spectral_wasserstein"] == pytest.approx(0.0, abs=1e-10)
-    assert result.metrics["hyperbolicity_agreement"] == 1.0
+    assert result.metrics["stability_sign_agreement"] == 1.0
     shuffled = result.null_metrics["shuffled_edges:operator_relative_error"]
     random_init = result.null_metrics["random_init:operator_relative_error"]
     assert np.mean(shuffled) > result.metrics["operator_relative_error"]

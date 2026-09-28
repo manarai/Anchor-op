@@ -95,7 +95,7 @@ def test_ACCEPTANCE_spectral_abscissa_difference_is_zero_for_equal_and_stable_fo
     A = np.array([[-1.0, 0.2], [0.0, -0.5]])
     assert ao.spectral_abscissa_difference(A, A) == pytest.approx(0.0, abs=1e-12)
 
-    # Sign of the hyperbolicity gap is captured.
+    # Sign of the spectral-abscissa gap is captured.
     B_hyper = np.array([[0.05, 0.0], [0.0, -0.9]])
     B_stable = np.array([[-0.1, 0.0], [0.0, -0.9]])
     assert ao.spectral_abscissa_difference(B_hyper, B_stable) == pytest.approx(0.05 - (-0.1))
@@ -207,7 +207,7 @@ def test_compare_reports_abscissa_at_full_rank_and_nans_at_partial_rank() -> Non
     result = ao.compare(full, {"exact": J}, n_null=2, seed=1)["exact"]
     assert "spectral_abscissa_difference" in result.metrics
     assert result.metrics["spectral_abscissa_difference"] == pytest.approx(0.0, abs=1e-10)
-    assert "primary_hyperbolicity_metric" in result.metadata
+    assert "primary_stability_metric" in result.metadata
 
     partial = ao.measure_from_sensitivity(S[:, :2], U[:, :2], reg="tsvd", reg_param=2)
     partial_result = ao.compare(partial, {"exact": J}, n_null=2, seed=1)["exact"]
