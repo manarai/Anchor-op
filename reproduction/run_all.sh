@@ -41,6 +41,40 @@ for script in reproduction/[0-9]*.py; do
              || { SKIPPED+=("$name (needs RPE1 h5ad + Jost 2020 data)"); continue; }
              check_h5ad "$ROOT/examples/data/jost2020/GSE132080_10X_matrix.mtx.gz" \
              || { SKIPPED+=("$name (needs Jost 2020 GSE132080 downloaded)"); continue; } ;;
+        # Recheck scripts (audit response, 2026-09-27).
+        30_*|33_*|34_*|36_*)
+             if [ ! -f "$ROOT/results/k562_essential_measurement.pkl" ] \
+                || [ ! -f "$ROOT/results/rpe1_essential_measurement.pkl" ] \
+                || [ ! -f "$ROOT/results/jost_u_at_d30.pkl" ]; then
+                 SKIPPED+=("$name (recheck needs the results/*.pkl bundles)"); continue
+             fi ;;
+        35_*) # F7 legacy multi-mode selection sensitivity — superseded by 42.
+             SKIPPED+=("$name (superseded by reproduction/42_f7_k562_random200.py; manual)"); continue ;;
+        42_*) # F7 K562 random-200 refit — heavy (10 GB h5ad load).
+             if [ ! -f "$ROOT/examples/data/K562_essential_normalized_singlecell_01.h5ad" ]; then
+                 SKIPPED+=("$name (needs Replogle K562 essential h5ad)"); continue
+             fi
+             SKIPPED+=("$name (F7 K562 random-200 is manual: python reproduction/42_f7_k562_random200.py)"); continue ;;
+        37_*) # F3 end-to-end on Jost — refits from raw counts; heavy.
+             if [ ! -f "$ROOT/examples/data/jost2020/GSE132080_10X_matrix.mtx.gz" ]; then
+                 SKIPPED+=("$name (needs Jost 2020 GSE132080 counts)"); continue
+             fi
+             SKIPPED+=("$name (F3-Jost refit is manual: python reproduction/37_recheck_F3_jost_end_to_end.py)"); continue ;;
+        39_*|41_*) # Jost target-grouped folds + d-sweep — read results/jost_measurement.pkl, minutes.
+             if [ ! -f "$ROOT/results/jost_measurement.pkl" ]; then
+                 SKIPPED+=("$name (needs results/jost_measurement.pkl — run 37 first)"); continue
+             fi ;;
+        40_*) # Nested-CV on all three — reads Replogle + Jost pkls, minutes.
+             if [ ! -f "$ROOT/results/k562_essential_measurement.pkl" ] \
+                || [ ! -f "$ROOT/results/rpe1_essential_measurement.pkl" ] \
+                || [ ! -f "$ROOT/results/jost_measurement.pkl" ]; then
+                 SKIPPED+=("$name (needs all three measurement pkls; run 37 for Jost first)"); continue
+             fi ;;
+        43_*) # Interaction-only cosine at matched α — reads Replogle pkls, seconds.
+             if [ ! -f "$ROOT/results/k562_essential_measurement.pkl" ] \
+                || [ ! -f "$ROOT/results/rpe1_essential_measurement.pkl" ]; then
+                 SKIPPED+=("$name (needs Replogle measurement pkls)"); continue
+             fi ;;
     esac
 
     if ! python3 "$script"; then
