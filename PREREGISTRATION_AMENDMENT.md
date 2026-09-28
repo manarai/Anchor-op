@@ -126,6 +126,132 @@ amendment section is not edited.
 
 ---
 
+## Amendment — comparator panel, positive-control ensembles, and random-panel distribution (2026-09-28)
+
+This section is being committed **before any of the Steps 1–3 code
+below is run**. The specifications lock in the recipes, success
+criteria, and decision rules independently of the outcomes.
+
+### Step 1 — Comparator panel
+
+All comparators use the same target-grouped outer folds (K = 5) and
+target-grouped inner folds (K_inner = 3) as Table 1. Hyperparameters
+are chosen only on inner folds. Nothing from held-out targets enters
+any fit, gene embedding, or PCA.
+
+**1a. Inverse direction, current metric.**
+`ρ = ‖A·S_test + U_test‖_F / ‖U_test‖_F`. Predict-zero baseline
+= 1. Two estimators:
+- TSVD with the existing rank grid `{0, 1, 2, 3, 5, 8, 12, 16, 20,
+  25, 30}` (already reported in Table 1).
+- Ridge / Tikhonov, `λ` chosen from a log grid on inner folds, with
+  `λ → ∞` (fit reduces to `A = 0`, ρ = 1) included so nested CV can
+  select the predict-zero baseline.
+
+Reporting: both next to the matched-linear-truth ρ per screen.
+
+**1b. Forward direction.**
+`ρ_fwd = ‖Ŝ_test − S_test‖_F / ‖S_test‖_F`. Baselines:
+- predict-zero (`Ŝ_test = 0` → ρ_fwd = 1);
+- **predict-training-mean response** — the column mean of training
+  `S`, broadcast across `n_test` columns. This is REQUIRED. About
+  half of the response energy is a shared mode, so beating zero is
+  trivial; success is defined against the training-mean baseline.
+
+Encodings tested, each fit with ridge (`λ` by inner CV):
+- **Fixed.** `Ŝ_test = B·U_test`, with `U_g = Wᵀδ_g` and `B` fit
+  on training.
+- **Footprint.** Same, with `U_g = Wᵀ Σ_ctrl δ_g` (Σ_ctrl from NT
+  controls only, same HVG feature space, targets force-kept).
+- **Learned.** Following the linear-baseline model of Ahlmann-Eltze
+  et al. 2025 (structure per their published code at
+  github.com/const-ae/linear_perturbation_prediction-Paper). The
+  gene embedding is derived from a PCA on the training targets'
+  gene-space pseudobulk responses only, refit within every outer
+  fold. The held-out target's embedding is that gene's row in the
+  training-derived embedding — this is legitimate because it is a
+  feature-gene, not a response. Prediction is in gene space; project
+  through `W` to program space for the metric. Also report the
+  gene-space ρ_fwd.
+
+Nulls for the learned encoding: **shuffled-embedding null** —
+permute target embeddings across targets, ≥100 permutations, refit
+per permutation.
+
+Matched linear truth: ρ_fwd for each encoding's U where defined.
+
+**Preregistered success criterion, per screen, per encoding:**
+ρ_fwd is more than 2 outer-fold SDs below the training-mean baseline
+AND below the 2.5th percentile of its shuffled-embedding null (learned
+encoding only; the fixed and footprint encodings need no shuffled
+null because the encoding is not learned from training responses).
+
+**Decision rule:**
+- Learned succeeds on ≥ 2 of 3 screens **and** fixed does not:
+  promote to a Result. Update title and abstract to state that the
+  fixed program-space encoding fails but a learned encoding recovers
+  held-out prediction.
+- Learned also fails: report that neither fixed nor learned linear
+  encodings predict held-out targets beyond the training mean on
+  these screens.
+- Mixed outcome: per-screen reporting; no cross-screen ranking.
+
+### Step 2 — Positive-control ensembles at matched amplitude
+
+Rerun the matched-SNR linear-truth control (nested-CV ρ, and
+interaction-only Frobenius cosine vs cross-replicate null) on K562,
+RPE1, and Jost across five ground-truth ensembles:
+- dense;
+- sparse-10% (Bernoulli off-diagonal mask);
+- sparse-2%;
+- rank-5 (`J_int = B·V` with `B ∈ ℝ^(d×5)`, `V ∈ ℝ^(5×d)` both
+  scaled by 1/√d);
+- block-modular (5 blocks of size ~d/5, dense within blocks with a
+  weak between-block coupling; specifically, per-entry Gaussian at
+  1/√d within blocks and at 1/(5·√d) between blocks).
+
+α_S is re-derived per ensemble per screen so median column-norm of
+`S_true` matches the observed median. Draws with spectral abscissa
+of `J_true` above zero are rejected and re-drawn; report the
+rejection fraction per ensemble. N ≥ 15 accepted draws per cell.
+
+**Criterion:** the conclusion "the matched linear truth beats
+predict-zero at matched SNR" should hold across all five ensembles.
+Report any (screen × ensemble) cell where it does not.
+
+### Step 3 — Random-panel distribution (K562)
+
+Fit anchor-op once on all approximately 1,740 qualifying K562
+essential targets (≥ 60 cells, same filters), saving `Σ_ctrl` from
+that fit. Then subsample 50 random 200-target panels from that
+single measurement (fixed `Σ_ctrl`, fixed basis W, fixed κ). For
+each panel, report:
+- real nested-CV ρ under Table 1's recipe;
+- matched-linear-truth ρ (N = 5 sims per panel).
+
+Report the distribution across the 50 panels: median, 5th–95th
+percentile band. Preregistered criterion: report the **fraction of
+panels where real ρ < 0.95**. No hidden threshold; the fraction is
+the reportable number.
+
+### Step 4 — Non-essential check (optional)
+
+If a Replogle genome-wide K562 h5ad is available locally and time
+allows, repeat Table 1 on 200 random non-essential targets. If not,
+add to Limitations exactly: "Both Replogle screens are essential-gene
+libraries dominated by a shared growth/stress response; whether the
+result holds for non-essential perturbations is untested."
+
+### Deliverables and reporting rule
+
+All Steps 1–3 outputs go to `results/recheck/F_step[1-3]_*.json` and
+new/updated figures. `RECHECK_LOG.md` receives the results exactly as
+they come out. If a bug is found post-hoc, the fix, the rationale, and
+all reruns of the affected controls are appended transparently; this
+amendment section is not edited.
+
+---
+
 ## Preregistration design flaw noted (not a change, but a caveat)
 
 - **`rel_diff ≤ 0.25` threshold is not calibrated to any realistic
