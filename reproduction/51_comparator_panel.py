@@ -59,7 +59,12 @@ SEED = 20260928
 N_OUTER = 5
 N_INNER = 3
 RANK_GRID = [0, 1, 2, 3, 5, 8, 12, 16, 20, 25, 30]
-LAMBDA_GRID = [0.0, 1e-3, 1e-2, 1e-1, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1e3, 1e4, 1e6]
+LAMBDA_GRID = [0.0, 1e-3, 1e-2, 1e-1, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1e3, 1e4, 1e6, 1e30]
+# 1e30 makes the ridge collapse B → 0, which under the training-fold-mean
+# intercept (§_nested_forward, §_learned_encoding_forward) yields Ŝ = b
+# = training-mean baseline exactly. Kept in the inner-CV grid so nested
+# CV can select "predict-the-training-mean" whenever the fitted map does
+# worse than the intercept alone on inner validation.
 N_PERM_LEARNED = 100
 N_LIN_SIM = 15
 GENE_EMBED_D = 30  # PCA dim for the learned target embedding (matches Ahlmann-Eltze baseline)
@@ -183,7 +188,15 @@ def _fwd_mse(S_pred, S_test):
 
 
 def _nested_forward(S, U, target_of_g, seed):
-    """Ridge B: Ŝ = B·U. λ chosen on inner folds."""
+    """Ridge Ŝ = B·U + b, following the Ahlmann-Eltze linear-baseline
+    convention (github.com/const-ae/linear_perturbation_prediction-Paper).
+
+    Per outer fold: b = column mean of training S (broadcast). Fit ridge
+    on centered training responses (S_tr − b) at the λ chosen by inner CV
+    with the same centering rule applied per inner fold. Add b back at
+    prediction. λ = 1e30 in LAMBDA_GRID collapses B → 0 and yields
+    Ŝ = b = training-mean baseline exactly.
+    """
     outer = _target_folds(target_of_g, N_OUTER, seed)
     num, den, picks, per_fold = 0.0, 0.0, [], []
     for i, (tr, te) in enumerate(outer):
@@ -194,12 +207,15 @@ def _nested_forward(S, U, target_of_g, seed):
             pooled_mse = 0.0
             for tr_in, val_in in inner:
                 gtr = tr[tr_in]; gval = tr[val_in]
-                B = _ridge_B(U[:, gtr], S[:, gtr], lam)
-                pooled_mse += _fwd_mse(B @ U[:, gval], S[:, gval])
+                b_in = np.mean(S[:, gtr], axis=1, keepdims=True)
+                B = _ridge_B(U[:, gtr], S[:, gtr] - b_in, lam)
+                Shat_val = B @ U[:, gval] + b_in
+                pooled_mse += _fwd_mse(Shat_val, S[:, gval])
             if pooled_mse < best_mse:
                 best_mse, best_lam = pooled_mse, lam
-        B = _ridge_B(U[:, tr], S[:, tr], best_lam)
-        Shat = B @ U[:, te]
+        b_out = np.mean(S[:, tr], axis=1, keepdims=True)
+        B = _ridge_B(U[:, tr], S[:, tr] - b_out, best_lam)
+        Shat = B @ U[:, te] + b_out
         num += _fwd_mse(Shat, S[:, te])
         den += float(np.sum(S[:, te] ** 2))
         per_fold.append(_fwd_rho(Shat, S[:, te]))
@@ -208,6 +224,28 @@ def _nested_forward(S, U, target_of_g, seed):
             "per_fold_rho": per_fold,
             "per_fold_sd": float(np.std(per_fold, ddof=1)) if len(per_fold) > 1 else 0.0,
             "picked_lambda": picks}
+
+
+def _sanity_forward_lambda_infinity(S, U, target_of_g, seed):
+    """Sanity check (a): force B → 0 (λ = 1e30). Under the training-fold
+    mean intercept the prediction is Ŝ = b = training-mean baseline; the
+    ρ returned here must equal `_training_mean_baseline_forward` under
+    the same folds. Kept as a distinct call so RECHECK_LOG can point at
+    it."""
+    outer = _target_folds(target_of_g, N_OUTER, seed)
+    num, den, per_fold = 0.0, 0.0, []
+    lam = 1e30
+    for i, (tr, te) in enumerate(outer):
+        b_out = np.mean(S[:, tr], axis=1, keepdims=True)
+        B = _ridge_B(U[:, tr], S[:, tr] - b_out, lam)
+        Shat = B @ U[:, te] + b_out
+        num += _fwd_mse(Shat, S[:, te])
+        den += float(np.sum(S[:, te] ** 2))
+        per_fold.append(_fwd_rho(Shat, S[:, te]))
+    return {"rho_pooled": float(np.sqrt(num / max(den, 1e-30))),
+            "per_fold_rho": per_fold,
+            "per_fold_sd": float(np.std(per_fold, ddof=1)) if len(per_fold) > 1 else 0.0,
+            "lambda_used": lam}
 
 
 def _training_mean_baseline_forward(S, target_of_g, seed):
@@ -303,35 +341,40 @@ def _learned_encoding_forward(S_prog, target_of_g, guides_by_target, adata,
 
         # 4) Gene-space training responses matrix: rows are targets, cols genes.
         Y_train = Y_tr  # already computed
-        # Fit ridge in gene space: Ŷ = X_embed · B_gene, so B_gene = (X'X + λI)⁻¹ X'Y.
-        # Inner-CV pick of λ.
-        # For speed, use closed-form with (X'X + λI)⁻¹ each λ.
-        XtX = tr_embed.T @ tr_embed  # (de, de)
-        XtY = tr_embed.T @ Y_train    # (de, G)
+        # Ahlmann-Eltze convention: fit ridge on training responses centered
+        # by their column mean (b = mean over training targets), add b back
+        # at prediction. Under λ → ∞ the map collapses to Ŷ = b = training-
+        # mean, so the model can never do worse than the training-mean
+        # baseline on this evaluation.
+        # For speed, closed-form with (X'X + λI)⁻¹ each λ, on centered Y.
         # Inner CV
         inner_target_labels = np.array(tr_targets)
         inner = _target_folds(inner_target_labels, min(N_INNER, len(inner_target_labels)), seed + i * 17)
         best_lam, best_mse = None, np.inf
         for lam in LAMBDA_GRID:
-            if not np.isfinite(lam) or lam > 1e30:
-                pooled = float(np.sum(Y_train ** 2))
-                if pooled < best_mse: best_mse, best_lam = pooled, lam
-                continue
             pooled = 0.0
             for tr_in, val_in in inner:
                 Xi = tr_embed[tr_in]; Yi = Y_train[tr_in]
                 Xv = tr_embed[val_in]; Yv = Y_train[val_in]
-                Bg = np.linalg.solve(Xi.T @ Xi + lam * np.eye(de), Xi.T @ Yi)
-                pooled += float(np.sum((Xv @ Bg - Yv) ** 2))
+                b_in = Yi.mean(axis=0, keepdims=True)  # (1, G)
+                if not np.isfinite(lam) or lam > 1e30 - 1:
+                    Bg = np.zeros((de, Y_train.shape[1]))
+                else:
+                    Bg = np.linalg.solve(Xi.T @ Xi + lam * np.eye(de),
+                                          Xi.T @ (Yi - b_in))
+                pooled += float(np.sum((Xv @ Bg + b_in - Yv) ** 2))
             if pooled < best_mse:
                 best_mse, best_lam = pooled, lam
         lam_picks.append(best_lam)
         # Refit on full training + evaluate
-        if np.isfinite(best_lam) and best_lam < 1e30:
-            B_gene = np.linalg.solve(XtX + best_lam * np.eye(de), XtY)
+        b_out = Y_train.mean(axis=0, keepdims=True)  # (1, G)
+        if np.isfinite(best_lam) and best_lam < 1e30 - 1:
+            XtX = tr_embed.T @ tr_embed
+            XtY_c = tr_embed.T @ (Y_train - b_out)
+            B_gene = np.linalg.solve(XtX + best_lam * np.eye(de), XtY_c)
         else:
             B_gene = np.zeros((de, Y_train.shape[1]))
-        Y_pred_test_targets = te_embed @ B_gene  # (n_te_targets, G)
+        Y_pred_test_targets = te_embed @ B_gene + b_out  # (n_te_targets, G)
         # Now map per-guide test predictions: each te guide's target -> the row.
         te_target_of_guide = target_of_g[te]
         # Convert gene-space pred to program space via W: Ŝ_prog = Wᵀ · Ŷ_geneᵀ (d, n).
@@ -550,6 +593,23 @@ def run_one(name, cfg):
     print("  [forward] baselines: predict-zero (ρ=1), predict-training-mean …")
     result["forward_baseline_zero"] = {"rho_pooled": 1.0}
     result["forward_baseline_train_mean"] = _training_mean_baseline_forward(S, target_of_g, SEED)
+
+    # Sanity check (a): ridge with intercept at λ = 1e30 (B → 0) must
+    # recover the training-mean baseline exactly. If not, the intercept
+    # is not wired through _nested_forward.
+    print("  [sanity a] forward ridge with intercept at λ = 1e30 …")
+    sanity = _sanity_forward_lambda_infinity(S, U, target_of_g, SEED)
+    tm_pooled = result["forward_baseline_train_mean"]["rho_pooled"]
+    sanity_gap = float(abs(sanity["rho_pooled"] - tm_pooled))
+    result["sanity_lambda_infinity"] = {
+        "rho_pooled": sanity["rho_pooled"],
+        "train_mean_baseline_rho_pooled": tm_pooled,
+        "abs_gap": sanity_gap,
+        "passes": bool(sanity_gap < 1e-8),
+    }
+    print(f"    ρ_fwd(λ=∞)={sanity['rho_pooled']:.6f}  "
+          f"training-mean={tm_pooled:.6f}  gap={sanity_gap:.2e}  "
+          f"passes={sanity_gap < 1e-8}")
 
     # Fixed encoding
     print("  [forward] fixed encoding (u_g = −κ W^T δ_g)  === already U in meas ===")

@@ -702,6 +702,163 @@ mean of training S, broadcast). Success = ρ_fwd more than 2 outer-fold
 SDs below the training-mean baseline AND (learned only) below the
 shuffled-embedding null's 2.5th percentile.
 
+**⚠︎ Bug found post-run and fix applied (2026-09-28, before manuscript
+edits landed as text-of-record):** the initial commit of
+`reproduction/51_comparator_panel.py` fit ridge as `Ŝ = B·U` with no
+intercept. Under the training-fold mean intercept `b = mean(S_train)`
+the Ahlmann-Eltze linear baseline is `Ŝ = B·U + b`, with `B` fit on
+centered training responses `(S_train − b)` and `b` added back at
+prediction (see the linear baseline in
+github.com/const-ae/linear_perturbation_prediction-Paper). Without the
+intercept, three symptoms:
+
+- when `λ → ∞`, `B → 0`, so `Ŝ → 0 = predict-zero`, not
+  `Ŝ → b = training-mean`;
+- the fit can be *worse* than the training mean (K562 fixed 0.8826 vs
+  baseline 0.8382 in the pre-fix run — a model with an intercept cannot
+  be worse than the intercept-only prediction);
+- the learned encoding under ridge with `λ` on the log grid can be
+  driven to `Ŝ ≈ 0`, so its ρ_fwd ≈ 1.000 on every screen including its
+  shuffled null (all three screens showed exactly this).
+
+**Why the fix is compliance, not post hoc tuning.** The Steps 1–3
+preregistration of 2026-09-28 (commit 08560c3) specifies the learned
+encoding as *"Following the linear-baseline model of Ahlmann-Eltze et
+al. 2025 (structure per their published code at
+github.com/const-ae/linear_perturbation_prediction-Paper)."* Their code
+carries the training-fold mean intercept. Omitting it in the first
+implementation was an implementation error against the preregistered
+"follow their published code" spec, not a modelling decision. Adding
+the intercept restores compliance. The same intercept is applied to the
+fixed and footprint encodings for consistency: they use the same ridge
+API, and without a shared convention "fixed" and "footprint" would be
+worse than the training-mean baseline for the trivial reason that they
+cannot express it.
+
+**Fix (in `reproduction/51_comparator_panel.py`):**
+
+- `LAMBDA_GRID` extended to include `1e30` at the top of the file.
+  Under `λ = 1e30`, ridge collapses `B → 0` and `Ŝ = b = training-mean`
+  exactly, so nested CV can select "predict the training mean" whenever
+  the fitted map does worse than the intercept alone on inner
+  validation.
+- `_nested_forward` and `_learned_encoding_forward` now compute
+  `b = mean(training responses)` per inner fold and per outer fold, fit
+  ridge on the centered training responses, and add `b` back at
+  prediction. `_matched_linear_truth_forward` calls `_nested_forward`
+  and so inherits the intercept.
+- `_sanity_forward_lambda_infinity(S, U, target_of_g, seed)` added.
+  It runs the fixed-encoding forward at `λ = 1e30` under the same
+  target-grouped outer folds and returns ρ. If the intercept is wired
+  correctly, this equals `training_mean_baseline` exactly. Sanity
+  check (a) in the preregistration replay.
+
+**Sanity (a) — passes.** K562 sanity: `ρ_fwd(λ=1e30) = 0.838224`,
+`training-mean baseline = 0.838224`, gap `0.00e+00`. The intercept is
+wired through `_nested_forward`.
+
+**Sanity (b)** — matched linear-truth with intercept must beat the
+training mean clearly — is reported alongside the rerun below.
+
+**Sanity (c)** — the per-fold λ picks for each encoding are stored in
+the JSON (`forward_fixed.picked_lambda`, `forward_footprint.picked_lambda`,
+`forward_learned.picked_lambda`).
+
+**Superseded numbers (kept for the record):** the first Step 1 run in
+commit `4f9a209` (results file `F_step1_comparator_panel.json`) is
+superseded by the intercept-fixed rerun documented below. Preserved
+values from the first run, marked SUPERSEDED:
+
+| Screen | train-mean baseline | fixed | footprint | learned prog | learned gene | learned null p2.5 |
+|---|---:|---:|---:|---:|---:|---:|
+| K562 essential | 0.8382 | ~~0.8826~~ | ~~0.8538~~ | ~~1.0004~~ | ~~1.0002~~ | ~~0.9999~~ |
+| RPE1 essential | 0.9341 | ~~0.9892~~ | ~~0.9859~~ | ~~1.0003~~ | ~~1.0001~~ | ~~1.0000~~ |
+| Jost 2020 | 0.9681 | ~~1.0010~~ | ~~0.9843~~ | ~~1.0029~~ | ~~1.0047~~ | ~~1.0002~~ |
+
+The current numbers from the intercept-fixed rerun follow.
+
+### Intercept-fixed rerun (Step 1b), 2026-09-28
+
+Command: `python reproduction/51_comparator_panel.py` at the commit that
+adds the intercept. Same seed (`SEED = 20260928`), same folds, same
+lambda grid extended with `1e30`, same 100-permutation shuffled null.
+
+**Sanity (a) — ridge with intercept at λ = 1e30 equals training-mean baseline:**
+
+| Screen | ρ_fwd(λ = 1e30) | training-mean baseline | |gap| |
+|---|---:|---:|---:|
+| K562 essential | 0.838224 | 0.838224 | 0.00e+00 |
+| RPE1 essential | 0.934126 | 0.934126 | 0.00e+00 |
+| Jost 2020 | 0.968118 | 0.968118 | 0.00e+00 |
+
+Intercept is wired correctly through `_nested_forward`.
+
+**Sanity (b) — matched linear-truth with intercept beats training-mean on every cell:**
+
+| Screen | fixed matched-linear ρ (mean, SD, N = 15) | footprint matched-linear ρ | Training-mean baseline |
+|---|---:|---:|---:|
+| K562 essential | 0.186 (SD 0.033) | 0.183 (SD 0.039) | 0.838 |
+| RPE1 essential | 0.390 (SD 0.044) | 0.287 (SD 0.021) | 0.934 |
+| Jost 2020 | 0.691 (SD 0.045) | 0.535 (SD 0.077) | 0.968 |
+
+All six (encoding × screen) matched-linear controls sit more than 2 SDs
+below their respective training-mean baseline. The estimator is not the
+bottleneck.
+
+**Sanity (c) — picked λ per outer fold:**
+
+K562: fixed [0.01, 0.01, 0.01, 0.01, 0.01]; footprint [3, 1, 1, 1, 1];
+learned [100, 30, 30, 30, 30].
+RPE1: fixed [1e30, 0.01, 1, 1, 0.1]; footprint [100, 1e30, 300, 30, 30];
+learned [30, 30, 30, 30, 30]. Nested CV picks the "predict-training-mean"
+collapse on some RPE1 folds — the fitted map does not beat the intercept
+alone on those inner splits.
+Jost: fixed [0.1, 0.01, 0.1, 0.1, 1]; footprint [10, 1, 1, 1, 0.1];
+learned [1, 0.1, 0.1, 0.001, 0.1].
+
+**Real-data forward comparator (intercept-fixed):**
+
+| Screen | Baseline tm (SD) | Fixed ρ_fwd (SD) | Fixed gap / 2×SD_tm | Footprint ρ_fwd (SD) | Foot gap / 2×SD_tm | Learned prog (SD) | Learned gene | Learned null p2.5 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| K562 essential | 0.8382 (0.0218) | **0.7907** (0.0303) | 0.0475 / 0.0436 ✅ | **0.7897** (0.0348) | 0.0485 / 0.0436 ✅ | 0.8395 (0.0231) | 0.8940 | 0.8367 |
+| RPE1 essential | 0.9341 (0.0293) | 0.9359 (0.0296) | −0.0018 / 0.0586 ✗ | 0.9298 (0.0342) | 0.0043 / 0.0586 ✗ | 0.9271 (0.0083) | 0.9665 | 0.9270 |
+| Jost 2020 | 0.9681 (0.0682) | 0.9962 (0.1594) | −0.0281 / 0.1364 ✗ | 0.9701 (0.0413) | −0.0020 / 0.1364 ✗ | 0.9554 (0.1093) | 0.9596 | 0.9480 |
+
+`gap` = baseline − ρ_fwd; a positive gap larger than `2 × per_fold_sd`
+of the baseline counts as "beats training-mean by > 2 outer-fold SDs".
+Success = beats by 2 SDs AND (learned only) below the learned shuffled-
+embedding null p2.5.
+
+**Verdict per screen × encoding:**
+
+- K562 fixed: ✅ success (2.18 baseline-SDs below training-mean).
+- K562 footprint: ✅ success (2.23 baseline-SDs below training-mean).
+- K562 learned: ✗ fail (gap essentially zero; ρ_fwd = 0.8395 sits above
+  the shuffled-null p2.5 of 0.8367 by 0.003).
+- RPE1 (all three): ✗ fail.
+- Jost (all three): ✗ fail.
+
+**Decision-rule branch (preregistered):**
+
+- (i) Learned succeeds on ≥ 2 / 3 screens **and** fixed does not:
+  learned succeeds 0 / 3, so branch (i) does not apply.
+- (ii) Learned also fails on all screens: learned fails on all three, but
+  fixed and footprint succeed on K562, so the strict "both encodings
+  fail everywhere" reading does not describe the outcome cleanly.
+- (iii) Mixed outcome: report per-screen with the exact ρ, the fold SD,
+  the training-mean baseline, and the null percentile it sits at. **This
+  is the branch invoked.** No cross-screen ranking.
+
+The paper's headline claim is adjusted accordingly (§2.6 and Abstract):
+the fixed program-space encoding and its footprint variant beat the
+training-mean baseline by ~2 outer-fold SDs on K562 essential but not
+on RPE1 essential or Jost 2020; the training-fold learned linear
+encoding does not beat the training-mean baseline on any screen. The
+matched-linear-truth controls reach ρ well below the training-mean
+baseline on every (screen × encoding) cell, so the estimator recovers
+signal that no fitted encoding on the real data does on RPE1 or Jost,
+and only fixed and footprint on K562 close a small fraction of the gap.
+
 | Screen | Train-mean baseline | Fixed | Footprint | Learned (prog) | Learned (gene) | Shuffled null p2.5 |
 |---|---:|---:|---:|---:|---:|---:|
 | K562 essential | 0.8382 | 0.8826 | 0.8538 | 1.0004 | 1.0002 | 0.9999 |
