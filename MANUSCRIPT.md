@@ -2,7 +2,7 @@
 
 **Dalton Kutzen**¹, **Kyller Fullmer**¹, **Tommy W. Terooatea**¹*
 
-¹Brigham Young University, Provo, UT, USA. *[affiliation details to be confirmed]*
+¹Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA.
 \*Corresponding author.
 
 ---
@@ -268,6 +268,10 @@ This work was supported by the College of Life Sciences at Brigham Young Univers
 ## Competing interests
 
 The authors declare no competing interests.
+
+## AI use disclosure
+
+The authors drove the main scientific idea and the coding analysis. Generative AI was used to assist analysis and to edit the manuscript text (drafting, revising, and consistency passes). All numeric results reported here were produced by the reproduction scripts in `reproduction/` and traced in `results/recheck/number_provenance.csv`; the authors verified the analyses and take responsibility for the final content of the manuscript.
 
 ## References
 
