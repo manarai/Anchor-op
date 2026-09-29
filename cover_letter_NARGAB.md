@@ -31,7 +31,7 @@ The manuscript has not been submitted elsewhere. All authors have approved the s
 
 Sincerely,
 
-Dalton Kutzen, Sam Green, Tommy W. Terooatea (corresponding author)
+Dalton Kutzen, Kyller Fullmer, Tommy W. Terooatea (corresponding author)
 Brigham Young University, Provo, UT, USA
 
 *Corresponding author: [Tommy W. Terooatea — affiliation email TBD]*

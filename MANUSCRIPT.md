@@ -1,6 +1,6 @@
 # Additive-input encoding fails operator-level target-held-out prediction on current Perturb-seq screens
 
-**Dalton Kutzen**¹, **Sam Green**¹, **Tommy W. Terooatea**¹*
+**Dalton Kutzen**¹, **Kyller Fullmer**¹, **Tommy W. Terooatea**¹*
 
 ¹Brigham Young University, Provo, UT, USA. *[affiliation details to be confirmed]*
 \*Corresponding author.
@@ -257,7 +257,7 @@ anchor-op is available at https://github.com/manarai/Anchor-op under the MIT lic
 
 Dalton Kutzen: Methodology, Formal analysis, Investigation, Writing — original draft, Writing — review & editing.
 
-Sam Green: Validation, Visualization, Writing — review & editing.
+Kyller Fullmer: Validation, Visualization, Writing — review & editing.
 
 Tommy W. Terooatea: Conceptualization, Supervision, Project administration, Funding acquisition, Writing — review & editing.
 
