@@ -34,4 +34,4 @@ Sincerely,
 Dalton Kutzen, Kyller Fullmer, Tommy W. Terooatea (corresponding author)
 Brigham Young University, Provo, UT, USA
 
-*Corresponding author: [Tommy W. Terooatea — affiliation email TBD]*
+*Corresponding author: Tommy W. Terooatea — <tommy.terooatea@byu.edu>*

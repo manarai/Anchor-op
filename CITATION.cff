@@ -16,7 +16,7 @@ authors:
   - family-names: Terooatea
     given-names: Tommy W.
     affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
-    email: "corresponding-author@example.edu"  # placeholder — fill in before submission
+    email: "tommy.terooatea@byu.edu"
 preferred-citation:
   type: article
   title: "Additive-input encoding fails operator-level target-held-out prediction on current Perturb-seq screens"

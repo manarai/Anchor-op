@@ -3,7 +3,7 @@
 **Dalton Kutzen**¹, **Kyller Fullmer**¹, **Tommy W. Terooatea**¹*
 
 ¹Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA.
-\*Corresponding author. Email: `<TBD@byu.edu>` *(placeholder — insert before submission)*.
+\*Corresponding author. Email: <tommy.terooatea@byu.edu>.
 
 ---
 
