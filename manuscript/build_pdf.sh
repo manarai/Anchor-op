@@ -16,12 +16,11 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/.." && pwd)"
 in="$repo/MANUSCRIPT.md"
-out="$here/anchor-op_preprint_v0.3.1.pdf"
+out="$here/anchor-op_preprint_v0.3.2.pdf"
 
 pandoc "$in" \
   --pdf-engine=tectonic \
   --resource-path="$repo" \
-  --number-sections \
   -V geometry:margin=1in \
   -V colorlinks=true \
   -V linkcolor=blue \
@@ -31,5 +30,11 @@ pandoc "$in" \
   -V monofont="Menlo" \
   -H "$here/pandoc_header.tex" \
   -o "$out"
+
+# Notes:
+# - --number-sections is deliberately OFF; MANUSCRIPT.md numbers its own
+#   sections (§2.1, §3.2, etc.) so pandoc's auto-numbering would double up.
+# - Empty ![](path) alt text on figures avoids pandoc inserting duplicate
+#   "Figure N: Figure N" labels above the caption line.
 
 echo "wrote: $out"

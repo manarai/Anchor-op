@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use anchor-op or reproduce the analyses in the accompanying manuscript, please cite this software and the manuscript."
+title: "anchor-op: target-grouped evaluation, identifiability checks, and matched-geometry positive controls for perturbation-response models"
+type: software
+version: "0.3.2"
+date-released: 2026-09-29
+url: "https://github.com/manarai/Anchor-op"
+license: MIT
+authors:
+  - family-names: Kutzen
+    given-names: Dalton
+    affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
+  - family-names: Fullmer
+    given-names: Kyller
+    affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
+  - family-names: Terooatea
+    given-names: Tommy W.
+    affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
+    email: "corresponding-author@example.edu"  # placeholder — fill in before submission
+preferred-citation:
+  type: article
+  title: "Additive-input encoding fails operator-level target-held-out prediction on current Perturb-seq screens"
+  authors:
+    - family-names: Kutzen
+      given-names: Dalton
+    - family-names: Fullmer
+      given-names: Kyller
+    - family-names: Terooatea
+      given-names: Tommy W.
+  year: 2026
+  status: preprint

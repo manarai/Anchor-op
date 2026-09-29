@@ -20,8 +20,8 @@ We submit *Additive-input encoding fails target-held-out prediction on current P
 
 **Open-source and reproducibility.** anchor-op is available at <https://github.com/manarai/anchor-op> under the MIT license. A pinned conda `environment.yml` (Python 3.11), a 59-test pytest suite, per-figure regeneration scripts under `reproduction/`, and every JSON that a numeric claim in the paper traces to are shipped with the release. Every number in the Results section that is not derived in-text has an entry in `results/recheck/number_provenance.csv` giving the source JSON, the reproduction script that produced it, and the rounding rule where applicable. All preregistrations and amendments are included, and analyses are labelled preregistered vs post hoc.
 
-- **Zenodo DOI (release archive):** *placeholder — will be inserted upon v0.3.1 tag archival on Zenodo.*
-- **bioRxiv DOI (preprint):** *placeholder — will be inserted upon repost of the v0.3.1 revision on bioRxiv.*
+- **Zenodo DOI (release archive):** *placeholder — will be inserted upon v0.3.2 tag archival on Zenodo.*
+- **bioRxiv DOI (preprint):** *placeholder — will be inserted upon repost of the v0.3.2 revision on bioRxiv.*
 
 We do not claim methodological superiority over any other Perturb-seq analysis. We report a negative held-out-prediction result on one encoding class under a specific evaluation recipe, calibrated by matched-SNR positive controls. The result is a diagnostic result about the state of the additive-input linear class on these three screens.
 

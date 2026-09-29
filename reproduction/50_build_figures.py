@@ -100,7 +100,7 @@ def fig2():
         real_rho.append(r["rho_pooled"]); real_sd.append(np.std(rhos, ddof=1))
         lin_rho.append(l["rho_mean"]); lin_sd.append(l["rho_std"])
 
-    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    fig, ax = plt.subplots(figsize=(7.5, 3.8))
     x = np.arange(len(screens)); w = 0.35
     ax.bar(x - w/2, real_rho, w, yerr=real_sd, capsize=3, label="Real (target-held-out)",
            color="#3A6EA5", edgecolor="0.2")
@@ -111,12 +111,15 @@ def fig2():
     ax.set_ylabel("held-out ρ")
     ax.set_ylim(0, 1.15)
     ax.set_title("Target-held-out nested-CV ρ")
-    ax.legend(loc="lower left", frameon=False)
+    # legend outside the plot area (upper right of the figure), so it never
+    # sits over the K562 or RPE1 bars.
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0),
+              frameon=False, borderaxespad=0.0)
     for xi, r_, s_ in zip(x - w/2, real_rho, real_sd):
         ax.text(xi, r_ + s_ + 0.02, f"{r_:.2f}\n±{s_:.3f}", ha="center", fontsize=8)
     for xi, r_, s_ in zip(x + w/2, lin_rho, lin_sd):
         ax.text(xi, r_ + s_ + 0.02, f"{r_:.2f}\n±{s_:.3f}", ha="center", fontsize=8)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0.0, 0.0, 0.78, 1.0))
     fig.savefig(OUT_DIR / "fig2_nested_cv.png", bbox_inches="tight")
     plt.close(fig)
     print("saved fig2_nested_cv.png")
