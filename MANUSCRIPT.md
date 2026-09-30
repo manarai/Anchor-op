@@ -56,7 +56,7 @@ We report pooled held-out ρ with its across-outer-fold standard deviation on th
 |---|---:|---:|---:|
 | Replogle K562 essential (188 / 188) | 0.96 (0.02) | 3 | 0.18 (0.003) |
 | Replogle RPE1 essential (153 / 153) | 1.00 (0.006) | 1 | 0.53 (0.016) |
-| Jost 2020 (122 / 25) | 1.00 (0.002) | 0 | 0.72 (0.043) |
+| Jost 2020 (122 / 25) | 1.00 (0.002) | 0 | 0.72 (0.027) |
 
 ![](manuscript_figures/fig2_nested_cv.png)
 
@@ -121,25 +121,27 @@ We ship a separate correctness fix at the identifiability level: the gate that l
 
 Sections §2.1–§2.5 test the fixed program-space encoding `u_g = −κ_g Wᵀδ_g` under the inverse task (fit `A = −U·S⁺`, predict `Û_test = −A·S_test`). To place that failure in the context of the two natural alternatives — a fixed *footprint* encoding and a *learned* linear encoding in the style of the current Perturb-seq-prediction benchmark [10] — a preregistered comparator panel runs all three encodings under a single evaluation on each of the three screens (Methods §4.5b, §4.8), and adds a predict-training-mean baseline. About half of each screen's response energy is a shared program-space mode, so beating predict-zero is trivial; the calibrated question is whether an encoding beats the training-mean baseline. The two-fold-SD criterion is a preregistered practical decision rule for this benchmark, not a formal hypothesis-test threshold.
 
-The forward task is `ρ_fwd = ‖Ŝ_test − S_test‖_F / ‖S_test‖_F` under target-grouped nested-CV. Baselines: predict-zero (ρ_fwd = 1) and predict-training-mean (column mean of training `S` broadcast across the held-out targets). Encodings, each fit as `Ŝ = B·U + b` with `b` the training-fold mean response and `B` a ridge fit on the centered training responses (λ by inner CV; the log grid includes `λ = 1×10³⁰`, which collapses `B → 0` and yields `Ŝ = b`): (i) *fixed* — `U_g = Wᵀδ_g`; (ii) *footprint* — `U_g = Wᵀ Σ_ctrl δ_g`; (iii) *learned* — an Ahlmann-Eltze-style linear baseline [10] in gene space, with the gene embedding derived from a PCA of the training targets' gene-space pseudobulk responses only, refit within every outer fold. The held-out target's embedding is that gene's row in the training-derived PCA — legitimate because it is a feature-gene, not a response. Predictions are made in gene space with the same training-fold-mean intercept and then projected through `W` for the program-space metric (the gene-space metric is also reported). Nulls for the learned encoding: a shuffled-embedding null (≥ 100 permutations of the target→embedding map, refit per permutation, with the intercept preserved). The preregistered success criterion is ρ_fwd more than 2 outer-fold SDs below the training-mean baseline AND (learned only) below the 2.5th percentile of the shuffled-embedding null.
+The forward task is `ρ_fwd = ‖Ŝ_test − S_test‖_F / ‖S_test‖_F` under target-grouped nested-CV. Baselines: predict-zero (ρ_fwd = 1) and predict-training-mean (column mean of training `S` broadcast across the held-out targets). Encodings, each fit as `Ŝ = B·U + b` with `b` the training-fold mean response and `B` a ridge fit on the centered training responses (λ by inner CV; the log grid includes `λ = 1×10³⁰`, which collapses `B → 0` and yields `Ŝ = b`): (i) *fixed* — `U_g = Wᵀδ_g`; (ii) *footprint* — `U_g = Wᵀ Σ_ctrl δ_g`; (iii) *learned* — a learned linear embedding following Ahlmann-Eltze et al. [10] in gene space, with the gene embedding derived from a PCA of the training targets' gene-space pseudobulk responses only, refit within every outer fold. The held-out target's embedding is that gene's row in the training-derived PCA — legitimate because it is a feature-gene, not a response. Predictions are made in gene space with the same training-fold-mean intercept and then projected through `W` for the program-space metric (the gene-space metric is also reported). Nulls for the learned encoding: a shuffled-embedding null (≥ 100 permutations of the target→embedding map, refit per permutation, with the intercept preserved). The preregistered success criterion is ρ_fwd more than 2 outer-fold SDs below the training-mean baseline AND (learned only) below the 2.5th percentile of the shuffled-embedding null.
 
 The training-fold intercept is what makes the training-mean baseline reachable within the encoding class: under `λ → ∞`, `B → 0`, so `Ŝ = b = training-mean baseline` exactly. A sanity call at `λ = 1×10³⁰` returns ρ_fwd equal to the training-mean baseline on each screen with `|gap| < 10⁻⁸` (Methods §4.5b). Under this convention every encoding must beat the intercept-only prediction on inner validation to be picked by nested CV.
 
-**Table 3. Forward comparator panel (target-grouped nested-CV ρ_fwd; lower is better; ρ_fwd = 1 is predict-zero).** The `2 × SD_tm` decision threshold is 0.0436 on K562, 0.0586 on RPE1, and 0.1364 on Jost; encoding-vs-baseline gaps that exceed this threshold are marked ✅ (K562 fixed 0.0475, K562 footprint 0.0485, K562 learned 0.0468), the rest are ✗.
+**Table 3. Forward comparator panel (target-grouped nested-CV ρ_fwd; lower is better; ρ_fwd = 1 is predict-zero).** The `2 × SD_tm` decision threshold is 0.0436 on K562, 0.0586 on RPE1, and 0.1364 on Jost; encoding-vs-baseline gaps that exceed this threshold are marked ✅ (K562 fixed 0.0475, K562 footprint 0.0485, K562 learned 0.0468), the rest are ✗. The table is split in two for typesetting; both halves list the same three screens.
 
-```{=latex}
-\begin{landscape}
-```
+*Table 3a. Baselines and fixed / footprint encodings.*
 
-| Screen | Predict-training-mean baseline (5-fold SD) | Fixed (SD) | Footprint (SD) | Learned prog (SD) | Learned gene | Learned shuffled-null 2.5 % |
-|---|---:|---:|---:|---:|---:|---:|
-| K562 essential | 0.8382 (0.0218) | **0.7907** (0.0303) ✅ | **0.7897** (0.0348) ✅ | **0.7914** (0.0401) ✅ | 0.8563 | 0.8366 |
-| RPE1 essential | 0.9341 (0.0293) | 0.9359 (0.0296) ✗ | 0.9298 (0.0342) ✗ | 0.9267 (0.0086) ✗ | 0.9660 | 0.9273 |
-| Jost 2020 | 0.9681 (0.0682) | 0.9962 (0.1594) ✗ | 0.9701 (0.0413) ✗ | 0.9528 (0.1024) ✗ | 0.9559 | 0.9487 |
+| Screen | Predict-training-mean baseline (5-fold SD) | Fixed (SD) | Footprint (SD) |
+|---|---:|---:|---:|
+| K562 essential | 0.8382 (0.0218) | **0.7907** (0.0303) ✅ | **0.7897** (0.0348) ✅ |
+| RPE1 essential | 0.9341 (0.0293) | 0.9359 (0.0296) ✗ | 0.9298 (0.0342) ✗ |
+| Jost 2020 | 0.9681 (0.0682) | 0.9962 (0.1594) ✗ | 0.9701 (0.0413) ✗ |
 
-```{=latex}
-\end{landscape}
-```
+*Table 3b. Learned encoding (program and gene space) and its shuffled-embedding null.*
+
+| Screen | Learned prog (SD) | Learned gene | Learned shuffled-null 2.5 % |
+|---|---:|---:|---:|
+| K562 essential | **0.7914** (0.0401) ✅ | 0.8563 | 0.8366 |
+| RPE1 essential | 0.9267 (0.0086) ✗ | 0.9660 | 0.9273 |
+| Jost 2020 | 0.9528 (0.1024) ✗ | 0.9559 | 0.9487 |
 
 **Verdict.** On K562 essential all three linear encodings — fixed, footprint, and learned — beat the training-mean baseline by ~2 outer-fold SDs (gaps 0.0475, 0.0485, 0.0468 against a 2 × baseline-SD threshold of 0.0436) and the learned encoding sits below its shuffled-embedding null p2.5 (0.7914 < 0.8366). On RPE1 essential and Jost 2020, no encoding beats the training-mean baseline: the ρ_fwd gaps against `2 × SD_tm` are all inside the fold-level noise. The learned encoding on RPE1 sits marginally below its shuffled-null p2.5 (0.9267 < 0.9273 by 0.0006) but does not meet the 2-SD gap requirement; the learned encoding on Jost sits *above* its shuffled-null p2.5 (0.9528 > 0.9487), and nested CV picks `λ = 1×10³⁰` (the intercept-only collapse) on every outer fold — the fitted map does not beat the training-mean intercept on any inner validation split on Jost.
 
@@ -155,7 +157,7 @@ The inverse-direction comparator (predict `U_test` from `S_test` under TSVD and 
 
 ![](manuscript_figures/fig6_comparator_panel.png)
 
-**Figure 6.** Comparator panel across the three screens. Top row: forward direction (`ρ_fwd` under fixed, footprint, and learned encodings, all with the training-fold mean intercept, with the predict-training-mean baseline band at ±2 × baseline-SD and the learned shuffled-embedding null p2.5–p97.5 as a dotted range). Bottom row: inverse direction (TSVD and Ridge on the real data with matched linear-truth ρ alongside). Dashed lines: predict-zero baseline. On K562 the fixed and footprint bars sit visibly below the training-mean baseline band; on RPE1 and Jost every encoding sits inside the band.
+**Figure 6.** Comparator panel across the three screens. Top row: forward direction (`ρ_fwd` under fixed, footprint, and learned encodings, all with the training-fold mean intercept, with the predict-training-mean baseline band at ±2 × baseline-SD and the learned shuffled-embedding null p2.5–p97.5 as a dotted range). Bottom row: inverse direction (TSVD and Ridge on the real data with matched linear-truth ρ alongside). Dashed lines: predict-zero baseline. On K562 all three encodings sit visibly below the training-mean baseline band; on RPE1 and Jost every encoding sits inside the band.
 
 ---
 
@@ -314,8 +316,8 @@ The authors drove the main scientific idea and the coding analysis. Generative A
 
 ![](manuscript_figures/figS1_dose_interp.png)
 
-**Supplementary Figure S1.** *(left)* Jost dose interpolation: guide-level held-out ρ (siblings in training) is 0.66 for real Jost vs 0.22 for matched linear-truth (SD 0.008); under the same target-grouped nested cross-validation used in Table 1, real Jost sits at the predict-zero baseline (ρ = 1.00, 5-fold SD 0.002) while the matched linear truth reaches ρ = 0.72 (SD 0.03, N = 15). The gap between the two settings shows the guide-level ρ is dose interpolation along a known target direction rather than operator-level recovery on a new perturbation target. *(right)* `rel_diff` against a matched linear ground truth. The preregistered 0.25 threshold is unreachable even for a linear truth on RPE1 and Jost, so it is miscalibrated at these signal-to-noise ratios; compared with its matched control, real `rel_diff` is higher on all three screens (K562 1.47 vs 0.33; RPE1 1.57 vs 0.98; Jost 1.26 vs 1.05), consistent with the held-out failure. Cited in §2.4 and §2.5.
+**Supplementary Figure S1.** *(a)* Jost dose interpolation: guide-level held-out ρ (siblings in training) is 0.66 for real Jost vs 0.22 for matched linear-truth (SD 0.008); under the same target-grouped nested cross-validation used in Table 1, real Jost sits at the predict-zero baseline (ρ = 1.00, 5-fold SD 0.002) while the matched linear truth reaches ρ = 0.72 (SD 0.027, N = 15). The gap between the two settings shows the guide-level ρ is dose interpolation along a known target direction rather than operator-level recovery on a new perturbation target. *(b)* `rel_diff` against a matched linear ground truth. The preregistered 0.25 threshold is unreachable even for a linear truth on RPE1 and Jost, so it is miscalibrated at these signal-to-noise ratios; compared with its matched control, real `rel_diff` is higher on all three screens (K562 1.47 vs 0.33; RPE1 1.57 vs 0.98; Jost 1.26 vs 1.05), consistent with the held-out failure.
 
 ![](manuscript_figures/figS2_ensembles.png)
 
-**Supplementary Figure S2.** Positive-control ensembles at matched SNR. *(top row)* Linear-truth nested-CV ρ per (screen × ensemble); all cells beat predict-zero (ρ < 1) across dense, sparse-10 %, sparse-2 %, rank-5, and block-modular ground truths on K562 essential, RPE1 essential, and Jost 2020. *(bottom row)* Interaction-only Frobenius cosine vs the cross-replicate paired null. Cited in §2.2.
+**Supplementary Figure S2.** Positive-control ensembles at matched SNR. *(top row)* Linear-truth nested-CV ρ per (screen × ensemble); all cells beat predict-zero (ρ < 1) across dense, sparse-10 %, sparse-2 %, rank-5, and block-modular ground truths on K562 essential, RPE1 essential, and Jost 2020. *(bottom row)* Interaction-only Frobenius cosine vs the cross-replicate paired null.

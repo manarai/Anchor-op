@@ -107,7 +107,8 @@ def fig2():
     ax.bar(x + w/2, lin_rho, w, yerr=lin_sd, capsize=3, label="Matched linear-truth control",
            color="#E9967A", edgecolor="0.2")
     ax.axhline(1.0, color="k", linestyle="--", lw=0.8, label="predict-zero baseline")
-    ax.set_xticks(x); ax.set_xticklabels(labels)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15, ha="right")
     ax.set_ylabel("held-out ρ")
     ax.set_ylim(0, 1.15)
     ax.set_title("Target-held-out nested-CV ρ")
@@ -339,7 +340,7 @@ def fig_supp():
     ax.set_xticks(x)
     ax.set_xticklabels(["guide-level\n(dose interp.)", "target-grouped\n(nested CV)"])
     ax.set_ylabel("held-out ρ")
-    ax.set_title("Supp 1. Jost dose interpolation")
+    ax.set_title("(a) Jost dose interpolation")
     ax.legend(frameon=False, fontsize=8); ax.set_ylim(0, 1.2)
 
     # Supp 2: rel_diff calibration
@@ -356,7 +357,7 @@ def fig_supp():
     ax.axhline(0.25, color="k", linestyle="--", lw=0.8, label="preregistered threshold 0.25")
     ax.set_xticks(x); ax.set_xticklabels(tags); ax.set_ylabel("rel_diff")
     ax.set_ylim(0, 1.8)
-    ax.set_title("Supp 2. rel_diff calibration (miscalibrated on 2 of 3)")
+    ax.set_title("(b) rel_diff calibration (miscalibrated on 2 of 3)")
     ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(OUT_DIR / "figS1_dose_interp.png", bbox_inches="tight")
