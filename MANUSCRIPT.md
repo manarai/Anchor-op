@@ -1,6 +1,6 @@
 # Additive-input encoding fails operator-level target-held-out prediction on current Perturb-seq screens
 
-**Kyler Fullmer**¹, **Dalton Kutzen**¹, **Tommy W. Terooatea**¹*
+**Kyler Fullmer**¹, **Dalton Kutzen**¹, **Tommy W. Terooatea**¹* *(ORCIDs to be added at bioRxiv submission)*
 
 ¹Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA.
 \*Corresponding author. Email: <tommy.terooatea@byu.edu>.
@@ -262,7 +262,7 @@ Replogle et al. 2022: gwps.wi.mit.edu / Figshare Plus deposit 20029387 (K562 ess
 
 ### 4.10 Code availability
 
-anchor-op is available at https://github.com/manarai/Anchor-op under the MIT license, tag `v0.3.2`. A pinned conda `environment.yml` (Python 3.11), a 59-test pytest suite, per-figure regeneration scripts, and the learned-encoding fidelity script (`reproduction/54_learned_encoding_fidelity.py`, a Python port of `solve_y_axb` from Ahlmann-Eltze et al. 2025's linear-baseline code) are shipped with the release, together with every JSON that a numeric claim traces to. Every numeric claim in this manuscript that is not derived in the text has an entry in `results/recheck/number_provenance.csv` giving the value stored in a JSON in `results/recheck/`, the reproduction script that produced it, and a note on rounding where applicable. Round-form numbers cited in the abstract and Results are drawn from the un-rounded values in that table.
+anchor-op is available at https://github.com/manarai/Anchor-op under the MIT license, tag `v0.3.2`. A permanent archive of this release will be deposited on Zenodo at first journal submission; the DOI will replace this sentence in the submitted version. A pinned conda `environment.yml` (Python 3.11), a 59-test pytest suite, per-figure regeneration scripts, and the learned-encoding fidelity script (`reproduction/54_learned_encoding_fidelity.py`, a Python port of `solve_y_axb` from Ahlmann-Eltze et al. 2025's linear-baseline code) are shipped with the release, together with every JSON that a numeric claim traces to. Every numeric claim in this manuscript that is not derived in the text has an entry in `results/recheck/number_provenance.csv` giving the value stored in a JSON in `results/recheck/`, the reproduction script that produced it, and a note on rounding where applicable. Round-form numbers cited in the abstract and Results are drawn from the un-rounded values in that table.
 
 ## Author contributions
 
