@@ -3,15 +3,15 @@ message: "If you use anchor-op or reproduce the analyses in the accompanying man
 title: "anchor-op: target-grouped evaluation, identifiability checks, and matched-geometry positive controls for perturbation-response models"
 type: software
 version: "0.3.2"
-date-released: 2026-09-29
+date-released: 2026-09-30
 url: "https://github.com/manarai/Anchor-op"
 license: MIT
 authors:
+  - family-names: Fullmer
+    given-names: Kyler
+    affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
   - family-names: Kutzen
     given-names: Dalton
-    affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
-  - family-names: Fullmer
-    given-names: Kyller
     affiliation: "Genomics and Bioinformatics Center, Brigham Young University, Provo, UT, USA"
   - family-names: Terooatea
     given-names: Tommy W.
@@ -21,10 +21,10 @@ preferred-citation:
   type: article
   title: "Additive-input encoding fails operator-level target-held-out prediction on current Perturb-seq screens"
   authors:
+    - family-names: Fullmer
+      given-names: Kyler
     - family-names: Kutzen
       given-names: Dalton
-    - family-names: Fullmer
-      given-names: Kyller
     - family-names: Terooatea
       given-names: Tommy W.
   year: 2026
