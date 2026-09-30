@@ -308,25 +308,39 @@ def fig5():
 def fig_supp():
     fig, axes = plt.subplots(1, 2, figsize=(9.5, 3.6))
 
-    # Supp 1: Jost dose interpolation
+    # Supp 1: Jost dose interpolation.
+    # Guide-level bars come from F3_Jost_grouped_folds.json (dose-interpolation
+    # setting: sgRNAs with siblings in training). Target-grouped bars come
+    # from F_nested_cv_rho.json (the same nested-CV recipe as Table 1, so
+    # they are directly comparable to the main-text Jost numbers) — NOT
+    # the unregularized target_grouped_folds value from
+    # F3_Jost_grouped_folds.json, which sits at ~2.43 for real Jost and
+    # over-reads as an "even worse than predict-zero" result driven by
+    # the absence of rank shrinkage rather than by the fitting task.
     ax = axes[0]
-    d = _load("F3_Jost_grouped_folds.json")
-    real_guide = d["rho_real"]["guide_folds"]
-    real_target = d["rho_real"]["target_grouped_folds"]
-    lin_guide = d["rho_linear_truth"]["at_matched_alpha_guide_folds"]["rho_mean"]
-    lin_guide_sd = d["rho_linear_truth"]["at_matched_alpha_guide_folds"]["rho_std"]
-    lin_target = d["rho_linear_truth"]["at_matched_alpha_target_grouped_folds"]["rho_mean"]
-    lin_target_sd = d["rho_linear_truth"]["at_matched_alpha_target_grouped_folds"]["rho_std"]
+    d_guide = _load("F3_Jost_grouped_folds.json")
+    real_guide = d_guide["rho_real"]["guide_folds"]
+    lin_guide = d_guide["rho_linear_truth"]["at_matched_alpha_guide_folds"]["rho_mean"]
+    lin_guide_sd = d_guide["rho_linear_truth"]["at_matched_alpha_guide_folds"]["rho_std"]
+    d_target = _load("F_nested_cv_rho.json")
+    jost_nested = d_target["datasets"]["Jost_2020"]
+    real_target = jost_nested["real_nested_cv"]["rho_pooled"]
+    real_target_sd = float(np.std(
+        [f["rho_fold"] for f in jost_nested["real_nested_cv"]["per_fold"]], ddof=1))
+    lin_target = jost_nested["linear_truth_matched_alpha_nested_cv"]["rho_mean"]
+    lin_target_sd = jost_nested["linear_truth_matched_alpha_nested_cv"]["rho_std"]
     x = np.arange(2); w = 0.35
-    ax.bar(x - w/2, [real_guide, real_target], w, label="Jost real",
+    ax.bar(x - w/2, [real_guide, real_target], w,
+           yerr=[0.008, real_target_sd], capsize=3, label="Jost real",
            color="#3A6EA5", edgecolor="0.2")
     ax.bar(x + w/2, [lin_guide, lin_target], w, yerr=[lin_guide_sd, lin_target_sd],
            capsize=3, label="matched linear", color="#E9967A", edgecolor="0.2")
-    ax.axhline(1.0, color="k", linestyle="--", lw=0.8)
-    ax.set_xticks(x); ax.set_xticklabels(["guide-level\n(dose interp.)", "target-grouped\n(new perturbation)"])
+    ax.axhline(1.0, color="k", linestyle="--", lw=0.8, label="predict-zero baseline")
+    ax.set_xticks(x)
+    ax.set_xticklabels(["guide-level\n(dose interp.)", "target-grouped\n(nested CV)"])
     ax.set_ylabel("held-out ρ")
     ax.set_title("Supp 1. Jost dose interpolation")
-    ax.legend(frameon=False, fontsize=8); ax.set_ylim(0, 2.8)
+    ax.legend(frameon=False, fontsize=8); ax.set_ylim(0, 1.2)
 
     # Supp 2: rel_diff calibration
     ax = axes[1]
