@@ -238,6 +238,53 @@ Options for the user:
 
 **Task 4 remains on hold.** The scGPT A4 feasibility check remains on hold pending resolution of (D/E/F). The PCA-lognorm and FA-lognorm arms of Task 4 can run on CPU here under the A2b-anchored recipe once the user authorises.
 
+## 2026-09-30 — scGPT state-dict conversion + A4 feasibility: HALT
+
+### State-dict conversion (option D)
+
+`src/anchorop/state_space/scgpt.py::_load_scgpt_encoder` now instantiates `scgpt.model.TransformerModel` with `use_fast_transformer=False` and converts the flash_attn checkpoint on the fly:
+
+- rename `.self_attn.Wqkv.weight` → `.self_attn.in_proj_weight` (shape (1536, 512) in both)
+- rename `.self_attn.Wqkv.bias` → `.self_attn.in_proj_bias` (shape (1536,))
+- drop `flag_encoder.weight` (flash_attn packed-sequence aux; unused on standard torch path)
+
+After conversion: `load_state_dict(..., strict=False)` reports **10 missing, 0 unexpected**. The 10 missing keys are all `cls_decoder._decoder.*` (the classifier head not used in the frozen-pretrain + CLS=False configuration). Attention, embeddings, feedforward, norms, MVC decoder, flag-encoder-removed path all load cleanly.
+
+`_scgpt_forward` / `_scgpt_continuous_forward` tokenize each cell as the top-`max_seq_len=1200` genes by |expression|, map gene symbols to vocab indices via the fitted vocab, pass through `model(src, values, src_key_padding_mask, CLS=False, CCE=False, MVC=False, ECS=False)`, and return `output["cell_emb"]`.
+
+### A4 feasibility result
+
+Script: `experiments/exp1_statespace/A4_scgpt_feasibility.py`.
+Output: `A4_scgpt_feasibility.json`.
+
+Setup: 200 K562 NT control cells, log1p-normalised, fitted into `ScGPTRep(d_out=30)`. PCA head retains 97.8 % of the scGPT native 512-dim variance in the top-30 components. Target gene: `ENSG00000004897` (CDC27, the first measurement-bundle target). `n_subset = 50` (PREREG default). κ ∈ {0.5, 0.7, 0.9}. Cosine threshold 0.9.
+
+Timings: fit = 204 s (200 cells on CPU), feasibility = 530 s (12 encode calls on 50-cell batches). Total ~ 12 min.
+
+Verdict: **HALT**.
+
+| Clause | Value |
+|---|---|
+| (i) non-trivial | **PASS** (‖u_z‖ = 0.0261 > encoder noise ‖·‖ = 0.0) |
+| (ii) stability — within subset A, across κ | PASS: 0.5↔0.7 = **0.986**, 0.5↔0.9 = **0.986**, 0.7↔0.9 = **1.000** |
+| (ii) stability — across two disjoint 50-cell subsets, same κ | **FAIL**: κ=0.5 = **−0.740**, κ=0.7 = **−0.760**, κ=0.9 = **−0.767** |
+| halt_reason | min cosine = −0.767 < 0.9 |
+
+**The subset cosines are antiparallel (~ −0.77), not random (~ 0).** Within one random 50-cell subset of controls, scaling CDC27's log1p expression by (1 − κ) for κ ∈ {0.5, 0.7, 0.9} produces an embedding shift whose direction is essentially unity-cosine stable across κ (the perturbation is magnitude-invariant). But between two disjoint 50-cell subsets of the same control population, the embedding shift points in **opposite** directions.
+
+This is not within the (ii) stability band under A4, so the scGPT→30 arm is halted per the preregistered rule.
+
+**Interpretation (for user review, no analysis action taken)**: the antiparallel direction across subsets suggests the per-cell gene-ranking tokenization that scGPT uses (top-`max_seq_len=1200` genes by expression) interacts with the knockdown-scale perturbation differently in different random subsets of controls — not simply as "noise on an underlying signal" but as two distinct geometries with opposite polarity. Possible causes to explore in a follow-up (NOT run here):
+
+- Fit the PCA head on more controls and check whether PCA-axis sign ambiguity is the source (per-component sign is arbitrary; a different fit could flip signs).
+- Use a larger `n_subset` (say 200 or 400) to see if the antiparallelism is a small-sample artefact.
+- Try a less highly-expressed target (CDC27 is a cell-cycle regulator, highly expressed in K562).
+- Test on an alternative base cell embedding (e.g., mean-pool of transformer output rather than scGPT's internal `avg-pool`).
+
+Per A4 as revised in PREREG amendment 2: **no workaround**. The scGPT→30 arm cannot participate in Task 4 with its knockdown-scale perturbation input definition on this checkpoint and this cell set.
+
+Task 4 remains on hold. PCA-lognorm and FA-lognorm arms are the two linear arms still eligible under A2b's re-anchored σ and α_S; the user decides whether to proceed with only those arms, re-open scGPT with a workaround that steps outside A4, or close out the experiment with the halt as a reported result.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:

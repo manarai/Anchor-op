@@ -1,0 +1,33 @@
+{
+  "non_trivial": true,
+  "knockdown_norm": 0.026098739355802536,
+  "noise_norm": 0.0,
+  "kappa_cosines": {
+    "0.5\u21940.7": 0.9859035611152649,
+    "0.5\u21940.9": 0.9859035611152649,
+    "0.7\u21940.9": 1.0000001192092896
+  },
+  "subset_cosines": {
+    "0.5": -0.7396978735923767,
+    "0.7": -0.760173499584198,
+    "0.9": -0.7671289443969727
+  },
+  "stable": false,
+  "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = -0.767 < 0.9; (ii) fails.",
+  "checkpoint": {
+    "name": "best_model",
+    "sha256": "6cb5d451ab5c4b33eb673adbe4fddc61d2389df1b89b7651a9fe2e557572b922",
+    "native_dim": 512,
+    "continuous_input_supported": true
+  },
+  "target_gene_ensembl": "ENSG00000004897",
+  "target_gene_symbol": "CDC27",
+  "n_control_cells": 200,
+  "n_subset": 50,
+  "cos_threshold": 0.9,
+  "kappas": [
+    0.5,
+    0.7,
+    0.9
+  ]
+}
