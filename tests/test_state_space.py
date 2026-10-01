@@ -95,35 +95,81 @@ def test_linear_jacobian_is_constant_across_cells(control_matrix, cls, dim):
 # ─── A4 (revised) knockdown-scale closed-form check on linear reps ─────
 @pytest.mark.parametrize("cls,dim", [(PCARep, 10), (FARep, 10)])
 @pytest.mark.parametrize("kappa", [0.5, 0.7, 0.9])
-def test_linear_knockdown_scale_matches_minus_kappa_mean_times_Jdelta(
+def test_linear_knockdown_scale_linear_space(
         control_matrix, cls, dim, kappa):
-    """A4 revision (2026-09-30), linear-arm consistency clause.
-
-    For a linear encoder E(x) = (x − μ)·J.T with J = components_, the
-    knockdown-scale finite difference on control cells reduces to a
-    closed form:
-
-        u_z = (1/n) Σ_i [ E(x_i · scale(g, 1−κ)) − E(x_i) ]
-            = (1/n) Σ_i [ −κ · x_i[g] · J[:, g] ]
-            = −κ · mean(X_ctrl[:, g]) · J[:, g]
-
-    (Equivalently −κ · mean(X_ctrl[:, g]) · (J @ δ_g) where δ_g is
-    the one-hot at the target gene.) When mean(X_ctrl[:, g]) = 1,
-    this reduces to −κ · J @ δ_g, the exact form the reviewer flags.
-    When the data are zero-centred residuals and mean(X_ctrl[:, g]) =
-    0 by construction (the Replogle K562 essential h5ad is one such
-    case), both sides vanish.
+    """A4 revision (2026-09-30), linear-arm consistency, linear input
+    space. For a linear encoder E(x) = (x − μ)·J.T with J =
+    components_, the knockdown-scale FD under ``input_space='linear'``
+    reduces to −κ · mean(X_ctrl[:, g]) · J[:, g]. Enforced to
+    atol=1e-10 across (PCARep, FARep) × κ.
     """
     rep = cls(dim=dim).fit(control_matrix)
-    g = 7  # arbitrary target
-    u_z_fd = rep.knockdown_scale_difference(control_matrix, g, kappa=kappa)
-    J0 = rep.jacobian(control_matrix)[0]      # (dim, G)
+    g = 7
+    u_z_fd = rep.knockdown_scale_difference(
+        control_matrix, g, kappa=kappa, input_space="linear")
+    J0 = rep.jacobian(control_matrix)[0]
     xbar_g = control_matrix[:, g].mean()
     u_z_closed = -kappa * xbar_g * J0[:, g]
     np.testing.assert_allclose(
         u_z_fd, u_z_closed, atol=1e-10,
-        err_msg=(f"{rep.name}: knockdown-scale diff does not equal "
-                 "−κ · mean(X_ctrl[:, g]) · J @ δ_g exactly."))
+        err_msg=(f"{rep.name}: knockdown-scale (linear) does not match "
+                 "the closed form −κ · mean(X_ctrl[:, g]) · J @ δ_g."))
+
+
+# ─── A4 (amendment 2) log1p knockdown-scale on linear reps ─────────────
+@pytest.fixture(scope="module")
+def lognorm_matrix():
+    """Synthetic positive-expression log1p-normalised matrix for the
+    log-space knockdown-scale test (the real-data equivalent is the
+    Replogle K562 essential raw-counts h5ad once log-normalised in
+    the exp1 pipeline)."""
+    rng = np.random.default_rng(SEED + 1)
+    n_cells, n_genes = 400, 50
+    # Positive-mean lognormal-ish counts, then log1p.
+    counts = rng.gamma(shape=1.5, scale=2.0, size=(n_cells, n_genes))
+    return np.log1p(counts)
+
+
+@pytest.mark.parametrize("cls,dim", [(PCARep, 10), (FARep, 10)])
+@pytest.mark.parametrize("kappa", [0.5, 0.7, 0.9])
+def test_linear_knockdown_scale_log1p_space(
+        lognorm_matrix, cls, dim, kappa):
+    """A4 amendment 2 (2026-09-30), log1p-space linear consistency.
+
+    For a linear encoder on log1p-normalised inputs, the knockdown-
+    scale FD equals ``mean_i(δx_i[g]) · J[:, g]`` where
+    ``δx_i[g] = log1p((1-κ) · expm1(x_i[g])) − x_i[g]``. Enforced to
+    atol=1e-10 across (PCARep, FARep) × κ.
+    """
+    rep = cls(dim=dim).fit(lognorm_matrix)
+    g = 7
+    u_z_fd = rep.knockdown_scale_difference(
+        lognorm_matrix, g, kappa=kappa, input_space="log1p")
+    J0 = rep.jacobian(lognorm_matrix)[0]
+    y = np.expm1(lognorm_matrix[:, g])
+    delta_g = np.log1p((1.0 - kappa) * np.clip(y, 0.0, None)) - lognorm_matrix[:, g]
+    u_z_closed = float(delta_g.mean()) * J0[:, g]
+    np.testing.assert_allclose(
+        u_z_fd, u_z_closed, atol=1e-10,
+        err_msg=(f"{rep.name}: knockdown-scale (log1p) does not match "
+                 "mean(log1p((1-κ) expm1(x[g])) - x[g]) · J[:, g]."))
+
+
+def test_knockdown_scale_zero_on_residuals():
+    """Residual h5ad verification (recorded in EXPERIMENT_LOG.md,
+    2026-09-30): when the per-gene control-cell mean is 0 (residual
+    data), the knockdown-scale FD under ``input_space='linear'`` is
+    exactly 0. This is the motivation for amendment 2 (switch all
+    arms to log1p-normalised raw counts)."""
+    rng = np.random.default_rng(SEED + 2)
+    X = rng.standard_normal((300, 50))
+    X -= X.mean(axis=0)  # make per-gene control mean exactly 0
+    rep = PCARep(dim=10).fit(X)
+    for g in range(5):
+        u_z = rep.knockdown_scale_difference(
+            X, g, kappa=0.7, input_space="linear")
+        np.testing.assert_allclose(u_z, 0.0, atol=1e-10,
+            err_msg=f"knockdown-scale on residuals should be 0 at gene {g}; got {u_z}")
 
 
 # ─── PCARep sanity: encode via mean-centred projection equals sklearn ──

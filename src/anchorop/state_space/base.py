@@ -91,30 +91,53 @@ class StateSpace(abc.ABC):
 
     def knockdown_scale_difference(self, X_ctrl: np.ndarray,
                                     target_gene_idx: int,
-                                    kappa: float = 0.7) -> np.ndarray:
+                                    kappa: float = 0.7,
+                                    *,
+                                    input_space: str = "log1p",
+                                    ) -> np.ndarray:
         """Mean knockdown-scale finite difference on control cells.
 
-        Defined per A4 of the exp1 preregistration (revised 2026-09-30):
+        Defined per the amendment to A4 (exp1 PREREG amendment 2,
+        2026-09-30, logged in ``EXPERIMENT_LOG.md``):
 
-            u_z = mean_i [ E(x_i · scale(target_gene, 1 − κ)) − E(x_i) ]
+            u_z = mean_i [ E(x_i^{perturbed}) − E(x_i) ]
 
-        where the scale is a *multiplicative* factor on the target
-        gene's expression. The default is κ = 0.7; the A4 feasibility
-        check sweeps {0.5, 0.7, 0.9}.
+        where the target gene's *normalised* expression is scaled by
+        ``(1 − κ)``. The scaling happens in the appropriate space:
 
-        For linear encoders this has the closed form
-        ``−κ · mean(X_ctrl[:, g]) · J @ δ_g``; the subclasses implement
-        the formulation that works on their encoder (closed form for
-        linear, two forward passes for scGPT).
+        - ``input_space='log1p'`` (default) — inputs are log1p-normalised
+          counts. For each control cell, un-log the target gene with
+          ``expm1``, multiply by ``(1 − κ)``, and re-log with ``log1p``
+          before passing through :meth:`encode`. This is the
+          preregistered definition for scGPT→30 and for the
+          PCA / FA arms fit on log1p-normalised data.
+        - ``input_space='linear'`` — inputs are already in a linear
+          (not log) representation; the scale ``(1 − κ)`` is applied
+          directly to the target gene's value. Used only for
+          synthetic tests and legacy residual h5ads.
 
-        The default implementation here uses two :meth:`encode` calls
-        and will be numerically correct for any encoder that supports
+        For zero-centred residual inputs under ``input_space='linear'``,
+        the per-gene control-cell mean is 0 by construction and the
+        knockdown-scale FD collapses to 0 for every linear encoder —
+        the amendment-triggered reason to require log1p-normalised
+        inputs on real data.
+
+        The default implementation uses two :meth:`encode` calls and
+        is numerically correct for any encoder that supports
         :meth:`encode` on a modified input matrix.
         """
         X_ctrl = np.asarray(X_ctrl, dtype=np.float64)
         X_perturbed = X_ctrl.copy()
-        X_perturbed[:, target_gene_idx] = (
-            X_perturbed[:, target_gene_idx] * (1.0 - kappa))
+        if input_space == "log1p":
+            y = np.expm1(X_perturbed[:, target_gene_idx])
+            y = np.clip(y, 0.0, None)
+            X_perturbed[:, target_gene_idx] = np.log1p(y * (1.0 - kappa))
+        elif input_space == "linear":
+            X_perturbed[:, target_gene_idx] = (
+                X_perturbed[:, target_gene_idx] * (1.0 - kappa))
+        else:
+            raise ValueError(
+                f"input_space must be 'log1p' or 'linear', got {input_space!r}")
         Z_ctrl = self.encode(X_ctrl)
         Z_perturbed = self.encode(X_perturbed)
         return (Z_perturbed - Z_ctrl).mean(axis=0)

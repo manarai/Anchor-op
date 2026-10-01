@@ -94,6 +94,85 @@ A1 reproduction gate verdict (recorded in `A1_reproduction_gate.json`): **PASS**
 4. Run `ScGPTRep.check_decode_direction_feasibility(...)` on 5 K562 non-targeting-control cells; record per-cell cosine table and halt verdict.
 5. Only then run Task 4 (fitting arms × seeds × k) per the PREREG recipe.
 
+## 2026-09-30 — amendment 2 trigger: residual-mean verification
+
+**Verification run** (preceding PREREG amendment 2):
+
+```
+python ad.read_h5ad examples/data/K562_essential_normalized_singlecell_01.h5ad
+→ |mean(X_ctrl[:, g])| over 188 target genes:
+    min = 3.87e-13, p05 = 4.54e-11, median = 5.70e-10,
+    p95 = 2.55e-09, max = 3.83e-09
+    n with |mean| < 1e-6: 188 / 188
+```
+
+The h5ad we use for the preprint is pre-scaled ctrl-residual data: every per-gene control-cell mean is at machine-precision zero. Under the multiplicative A4 definition `u_z = mean_i [E(x_i · scale(target, 1 − κ)) − E(x_i)]`, linear encoders collapse to 0 on this input (closed-form `−κ · mean(X_ctrl[:, g]) · J[:, g] = 0`). scGPT also cannot ingest residuals.
+
+**Consequence**: all exp1 arms must be built on log1p-normalised raw counts, not on the preprint's residual h5ad. The PCA-on-residuals paper-1 arm (A1 gate) becomes a reference row only; the comparator question (does scGPT help?) is between scGPT→30 and PCA-lognorm, both at d = 30 on identical log1p-normalised input.
+
+Code change (committed with amendment 2):
+
+- `src/anchorop/state_space/base.py::StateSpace.knockdown_scale_difference` gains an `input_space` kwarg (`"log1p"` default, `"linear"` legacy). The log1p path un-logs the target gene with `expm1`, scales by `(1 − κ)`, re-logs with `log1p`, and feeds to `encode`.
+- Tests `tests/test_state_space.py`:
+  - `test_linear_knockdown_scale_log1p_space` (PCA × FA × κ ∈ {0.5, 0.7, 0.9}) enforces the log1p closed form `mean_i[log1p((1 − κ) · expm1(x_i[g])) − x_i[g]] · J[:, g]` to `atol = 1e-10`.
+  - `test_knockdown_scale_zero_on_residuals` enforces that the `"linear"` path returns exactly 0 on zero-centred inputs — the motivation for the amendment.
+- Full state_space suite: `pytest -q tests/test_state_space.py` → **25 passed, 1 skipped**.
+
+The "non-trivial on at least 95 % of 188 targets on the real-data log-normalised h5ad" assertion lives in `experiments/exp1_statespace/task2b_lognorm_input_check.py` and runs after the raw-counts h5ad is on disk.
+
+## 2026-09-30 — leakage audit, CELLxGENE census query result
+
+**Query** (run inside `anchor-op-scgpt` conda env, `cellxgene_census 1.18.0`, latest census):
+
+```python
+with cxg.open_soma(census_version="latest") as census:
+    datasets = census["census_info"]["datasets"].read().concat().to_pandas()
+    # 1,852 datasets in latest census.
+    for q in ("Replogle", "perturb", "K562", "CRISPR"):
+        hits = datasets[matches q in collection_name/dataset_title/dataset_h5ad_path]
+```
+
+Results:
+
+| Query | Hits | Notes |
+|---|---:|---|
+| `Replogle` | **0** | — |
+| `K562` | **0** | — |
+| `CRISPR` | **0** | — |
+| `perturb` | 7 | all mouse-thalamus development datasets (word "perturb" in collection title; not Perturb-seq) |
+
+**Verdict**: Replogle 2022 K562 essential-gene Perturb-seq is NOT in the latest CELLxGENE census. Since scGPT_human was pretrained on CELLxGENE census (confirmed below), the scGPT whole-human pretrain **does not contain Replogle 2022 pretraining data**. Low leakage risk.
+
+User will also pull the Cui et al. 2024 Methods text via BYU access for the explicit per-study enumeration; this CELLxGENE query is the independent check.
+
+## 2026-09-30 — scGPT_human checkpoint on disk; lineage confirmed
+
+Download: `gdown --folder https://drive.google.com/drive/folders/1oWh_-ZRdhtoGQ2Fw24HP41FgLoomVo-y`, then individual-file fallback for `vocab.json`. Local path: `experiments/exp1_statespace/weights/scGPT_human/`, gitignored.
+
+Files on disk (download date 2026-09-30):
+
+| File | Size | SHA-256 |
+|---|---:|---|
+| `best_model.pt` | 196 MB | `6cb5d451ab5c4b33eb673adbe4fddc61d2389df1b89b7651a9fe2e557572b922` |
+| `args.json` | 1.3 KB | `c18e075e018140cb8b2d9029387b9de26607a5ce6a8ccabd6ead70cd76b95d60` |
+| `vocab.json` | 1.3 MB | `acca93d114ca62c3f0f50debbd23e8c87f0714f4737764454f6b2b13f2e8580f` |
+
+`args.json` content (relevant fields, verbatim):
+
+- `"data_source": "/scratch/ssd004/datasets/cellxgene/scb_strict/human"`
+- `"save_dir": "/scratch/ssd004/datasets/cellxgene/save/cellxgene_census_human-May23-08-36-2023"`
+- `"training_tasks": "both"`
+- `"MVC": true` (Masked Value Completion; self-supervised)
+- `"USE_GENERATIVE_TRAINING": true`
+- `"input_style": "binned", "input_emb_style": "continuous"`
+- `"n_bins": 51`
+- `"nlayers": 12, "nheads": 8, "embsize": 512, "d_hid": 512`
+- No `fine_tune`, `pert`, `perturbation`, or `GEARS` keywords.
+
+**Lineage verdict**: this is the whole-human pretrain checkpoint, trained on the May 2023 CELLxGENE census human snapshot with self-supervised masked-value and generative objectives only. **Not fine-tuned on perturbation data**. Native encoder dim = 512; a PCA head to `d = 30` fits on control-cell embeddings per the exp1 PREREG.
+
+Note on A4: `input_style = "binned"` combined with `input_emb_style = "continuous"` suggests the embedding path is continuous after binning. The autograd Jacobian path is reported as a sensitivity check once the loader is wired (A4 reporting only; not required for arm admission per the A4 revision).
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:
