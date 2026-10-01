@@ -305,6 +305,35 @@ In progress / to-do order:
    - Next-step options for the projection question that avoid this problem (no implementation): gene-space operators restricted to targeted genes; Jost within-target concordance; encoders with continuous-value inputs.
 7. **Commit + push** final diagnosis + report. **Stop. Do NOT merge to main.**
 
+## 2026-09-30 — items 4 + 5 results, closeout
+
+### Item 4 — force-include CDC27 at token position 0
+
+Pinned CDC27 into position 0 of the token set (bypassing the top-k argsort step for the target). **A4 feasibility PASSES.**
+
+| | CDC27 default (A4 halt) | CDC27 force-included (item 4) |
+|---|---:|---:|
+| κ-cosines, subset A | 0.986, 0.986, 1.000 | 0.996, 0.980, 0.993 |
+| Subset cosines A vs B at same κ | −0.740, −0.760, −0.767 | **+0.995, +0.997, +0.999** |
+
+Mechanism (i) tokenization drop-out confirmed. See `A4_scgpt_diagnosis.json`.
+
+### Item 5 — determinism + CENPJ negative control + noise re-expression
+
+- (a) Encode same 200 cells twice with identical input: **max |Δ| = 0** in 512-d AND in 30-d. `model.training = False`; 37 Dropout modules, all `p = 0.0`. **Pipeline is perfectly deterministic on identical input.**
+- (b) CENPJ (never in top-1200) in-silico knockdown: median 0, min 0, **max ‖Δ‖ = 0.535** on the 512-d head; **9 / 50 cells have ‖Δ‖ > 1e-6**. Worst cell trace: log1p-values differ at only 1 position (CENPJ), but **top-k token IDs differ at 1,132 / 1,200 positions**. Values identical to `atol = 1e-10`, mask identical. Mechanism: numpy's default (quicksort) argsort is **not stable** on ties; many near-zero genes tie, and a single-gene change (even one staying out of the top-k) non-deterministically reshuffles the trailing positions.
+- (c) Pipeline-determinism budget (max per-cell CENPJ Δ = 0.5355) / item 2 between-subset norm (0.0342) = **ratio 15.65**. The item 2 "noise floor" is dominated by pipeline non-determinism from argsort tie-breaking, not by cell-sampling variance.
+
+See `A4_scgpt_item5_determinism.json`.
+
+### Final verdict
+
+The A4 halt is explained by **(i) tokenization drop-out + (iii) argsort-tie-breaking pipeline non-determinism in the top-k gene-selection step**. The (ii) "signal at the cell-sampling noise floor" appearance in item 2 is a surface effect of (iii). 0 / 5 generality (NCL best, min cos 0.40 still below 0.9 threshold). No workaround re-enables the scGPT arm per the preregistered A4 rule.
+
+See `REPORT_exp1_statespace.md` for the scope-respecting conclusion and the (not-implemented) next-step options for the projection question.
+
+**Closeout**: branch stays as-is, no merge to main. v0.3.2 preprint on main is unchanged.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:

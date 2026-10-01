@@ -1,0 +1,218 @@
+{
+  "status": "POST-HOC DIAGNOSIS \u2014 DOES NOT RE-ENABLE THE scGPT ARM",
+  "scope_note": "Items 1\u20134 are diagnosis after the A4 halt verdict was recorded. Per the exp1 PREREG amendment 2 and the user instruction at closeout: no workaround re-enables the scGPT arm.",
+  "n_control_cells": 200,
+  "max_seq_len": 1200,
+  "kappas": [
+    0.5,
+    0.7,
+    0.9
+  ],
+  "cos_threshold": 0.9,
+  "random_state": 0,
+  "item1_tokenization": {
+    "CDC27": {
+      "fraction_in_top_1200_pre": 0.105,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.005,
+        "0.7": 0.0,
+        "0.9": 0.0
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.1,
+        "0.7": 0.105,
+        "0.9": 0.105
+      }
+    },
+    "q10:CENPJ": {
+      "fraction_in_top_1200_pre": 0.0,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.0,
+        "0.7": 0.0,
+        "0.9": 0.0
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.0,
+        "0.7": 0.0,
+        "0.9": 0.0
+      }
+    },
+    "q30:PMPCB": {
+      "fraction_in_top_1200_pre": 0.1,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.01,
+        "0.7": 0.0,
+        "0.9": 0.0
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.09,
+        "0.7": 0.1,
+        "0.9": 0.1
+      }
+    },
+    "q50:MED10": {
+      "fraction_in_top_1200_pre": 0.2,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.03,
+        "0.7": 0.01,
+        "0.9": 0.005
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.17,
+        "0.7": 0.19,
+        "0.9": 0.195
+      }
+    },
+    "q70:SMC4": {
+      "fraction_in_top_1200_pre": 0.59,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.195,
+        "0.7": 0.04,
+        "0.9": 0.0
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.395,
+        "0.7": 0.55,
+        "0.9": 0.59
+      }
+    },
+    "q90:NCL": {
+      "fraction_in_top_1200_pre": 0.99,
+      "fraction_in_top_1200_post": {
+        "0.5": 0.98,
+        "0.7": 0.97,
+        "0.9": 0.645
+      },
+      "fraction_dropped_out": {
+        "0.5": 0.01,
+        "0.7": 0.02,
+        "0.9": 0.345
+      }
+    }
+  },
+  "item2_noise_floor_cdc27": {
+    "n_pairs": 10,
+    "n_subset": 25,
+    "mean_u_z_norm": 0.031891100108623505,
+    "mean_between_subset_norm": 0.0342175609127557,
+    "ratio_u_over_noise_floor": 0.9320097417211017,
+    "deterministic_forward_noise": 0.0,
+    "note": "A4 clause (i) ran against the deterministic forward-pass noise, which is 0 by construction for a frozen network on identical input. The 'proper' noise floor for stability is the between-subset (cell-sampling) variability reported here. If the mean \u2016u_z\u2016 is at the same order of magnitude as the between-subset norm (ratio ~ 1), the knockdown signal is at noise."
+  },
+  "item3_five_targets": {
+    "q10:CENPJ": {
+      "target_ensembl": "ENSG00000151849",
+      "control_mean_log1p": 0.1569598650900322,
+      "quantile": 0.1,
+      "non_trivial": true,
+      "stable": false,
+      "knockdown_norm": 0.01982000097632408,
+      "kappa_cosines": {
+        "0.5\u21940.7": 0.98247891664505,
+        "0.5\u21940.9": 0.98247891664505,
+        "0.7\u21940.9": 1.0
+      },
+      "subset_cosines": {
+        "0.5": -0.47835037112236023,
+        "0.7": -0.6420082449913025,
+        "0.9": -0.6420082449913025
+      },
+      "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = -0.642 < 0.9; (ii) fails."
+    },
+    "q30:PMPCB": {
+      "target_ensembl": "ENSG00000105819",
+      "control_mean_log1p": 0.3812417376960412,
+      "quantile": 0.3,
+      "non_trivial": true,
+      "stable": false,
+      "knockdown_norm": 0.0155605124309659,
+      "kappa_cosines": {
+        "0.5\u21940.7": 0.769727349281311,
+        "0.5\u21940.9": 0.769727349281311,
+        "0.7\u21940.9": 0.9999999403953552
+      },
+      "subset_cosines": {
+        "0.5": -0.15327347815036774,
+        "0.7": 0.1186806783080101,
+        "0.9": 0.21584710478782654
+      },
+      "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = -0.153 < 0.9; (ii) fails."
+    },
+    "q50:MED10": {
+      "target_ensembl": "ENSG00000133398",
+      "control_mean_log1p": 0.5624903168162863,
+      "quantile": 0.5,
+      "non_trivial": true,
+      "stable": false,
+      "knockdown_norm": 0.010572399012744427,
+      "kappa_cosines": {
+        "0.5\u21940.7": 0.6798585653305054,
+        "0.5\u21940.9": 0.5693089962005615,
+        "0.7\u21940.9": 0.8507224321365356
+      },
+      "subset_cosines": {
+        "0.5": -0.3350684940814972,
+        "0.7": 0.18008902668952942,
+        "0.9": 0.08328986912965775
+      },
+      "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = -0.335 < 0.9; (ii) fails."
+    },
+    "q70:SMC4": {
+      "target_ensembl": "ENSG00000113810",
+      "control_mean_log1p": 0.9757733939511768,
+      "quantile": 0.7,
+      "non_trivial": true,
+      "stable": false,
+      "knockdown_norm": 0.03566617891192436,
+      "kappa_cosines": {
+        "0.5\u21940.7": 0.4919482171535492,
+        "0.5\u21940.9": 0.6699389219284058,
+        "0.7\u21940.9": 0.5813015103340149
+      },
+      "subset_cosines": {
+        "0.5": 0.14462272822856903,
+        "0.7": 0.5466915369033813,
+        "0.9": -0.028160985559225082
+      },
+      "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = -0.028 < 0.9; (ii) fails."
+    },
+    "q90:NCL": {
+      "target_ensembl": "ENSG00000115053",
+      "control_mean_log1p": 2.921901944769955,
+      "quantile": 0.9,
+      "non_trivial": true,
+      "stable": false,
+      "knockdown_norm": 0.007692151702940464,
+      "kappa_cosines": {
+        "0.5\u21940.7": 0.6314703226089478,
+        "0.5\u21940.9": 0.795049786567688,
+        "0.7\u21940.9": 0.6982578635215759
+      },
+      "subset_cosines": {
+        "0.5": 0.9372986555099487,
+        "0.7": 0.398735910654068,
+        "0.9": 0.4089812636375427
+      },
+      "halt_reason": "knockdown-scale direction not stable across \u03ba or subsets: min cos = 0.399 < 0.9; (ii) fails."
+    }
+  },
+  "item4_force_include": {
+    "target": "CDC27",
+    "mode": "force-include target at token position 0",
+    "non_trivial": true,
+    "stable": true,
+    "knockdown_norm": 0.013055826537311077,
+    "kappa_cosines": {
+      "0.5\u21940.7": 0.9960730075836182,
+      "0.5\u21940.9": 0.9795055389404297,
+      "0.7\u21940.9": 0.9932196736335754
+    },
+    "subset_cosines": {
+      "0.5": 0.9949983358383179,
+      "0.7": 0.9971889853477478,
+      "0.9": 0.9987305998802185
+    },
+    "halt_reason": null,
+    "note": "Diagnosis only. Does NOT re-enable the scGPT arm per A4; A4's halt verdict stands."
+  }
+}

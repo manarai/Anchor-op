@@ -1,0 +1,52 @@
+{
+  "status": "POST-HOC DIAGNOSIS item 5 \u2014 NOT RE-ENABLING THE scGPT ARM",
+  "scope_note": "Items 1\u20135 are diagnosis after the A4 halt verdict. Per the exp1 PREREG amendment 2 and the user closeout instruction: no workaround re-enables the scGPT arm.",
+  "n_control_cells": 200,
+  "item5a_determinism": {
+    "model_training_flag": false,
+    "n_dropout_modules": 37,
+    "first_dropout_p": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "max_abs_delta_native": 0.0,
+    "median_abs_delta_native": 0.0,
+    "max_abs_delta_head": 0.0,
+    "median_abs_delta_head": 0.0,
+    "argsort_tie_breaking": {
+      "numpy_default_kind": "quicksort",
+      "stable": false,
+      "note": "np.argsort(-np.abs(x))[:k] with default kind='quicksort' is not stable. For a given cell, if the k-th and (k+1)-th absolute values are equal, the token set is implementation-defined. Across two IDENTICAL input runs the result is deterministic within a single process, but minor perturbations to a single gene can non-deterministically rearrange ties among OTHER genes."
+    }
+  },
+  "item5b_negative_control": {
+    "target": "CENPJ",
+    "target_ensembl": "ENSG00000151849",
+    "kappa": 0.7,
+    "n_cells": 50,
+    "per_cell_delta_norm_summary": {
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.5354921817779541,
+      "n_above_1e-6": 9
+    },
+    "propagation_trace": {
+      "cell_index": 23,
+      "u_z_norm_this_cell": 0.5354921817779541,
+      "n_gene_log1p_values_changed": 1,
+      "topk_token_ids_identical": false,
+      "topk_values_identical_atol_1e-10": true,
+      "topk_padding_mask_identical": true,
+      "diff_positions_in_src": 1132
+    }
+  },
+  "item5c_noise_floor_reexpression": {
+    "note": "CENPJ is a no-op perturbation for scGPT (not in top-k, so the input to the transformer should be identical). Any non-zero u_z for CENPJ is PIPELINE non-determinism, not biology. The pipeline-determinism budget from item 5(b) is compared to the item-2 cell-sampling noise floor; if the two are of similar order, the noise floor itself is dominated by pipeline non-determinism.",
+    "pipeline_determinism_budget_cenpj_max": "0.5354922",
+    "between_subset_norm_item2": 0.0342175609127557,
+    "ratio_pipeline_over_between_subset": "15.64963"
+  }
+}
