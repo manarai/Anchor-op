@@ -104,3 +104,76 @@ Rank  Method          Composite  Marker  Specificity  Stability  Timing   r2
 4. **Different FA convention.** scJDO's FA uses raw `components_.T` (NOT orthonormalized). exp1b's FA uses QR-orthonormalized loadings so the FA/PCA scale matches (same correction that landed in anchor-op v0.3.4 on main). The ranks of the two FA runs are still comparable but their numerical values are not.
 5. **LDVAE split.** scJDO treats LDVAE as a single arm (encoder-based scoring). exp1b splits LDVAE into 3a (encoder posterior mean) and 3b (decoder loadings as a linear basis). For the Spearman mapping, LDVAE in scJDO's panel ↔ LDVAE-encoder in exp1b.
 6. **Overlap n = 4** is small for a Spearman; the correlation will be reported with a confidence interval and treated as suggestive, not inferential.
+
+## 2026-09-30 — B1: six-arm classes committed (code only, no fitting)
+
+`experiments/exp1b_statespace_benchmark/arms.py` (commit `510771b`). Seven classes:
+- PCALog1pArm, FAQRLog1pArm — linear bases on log1p control counts; QR orthonormalization.
+- LDVAEEncoderArm — scvi.model.LinearSCVI(n_latent=30), posterior-mean latent, raw counts.
+- LDVAELoadingsArm — reuses the trained LDVAE's decoder loadings, QR-orthonormalized, used as a linear basis on log1p; `.fit(ldvae_arm)` + `.set_mean(X_log1p_ctrl)`.
+- SCVIArm — scvi.model.SCVI(n_latent=30), posterior-mean latent, raw counts.
+- ScGPTFixedIngestionArm — scGPT_human (or random-weights twin), with the exp1 A4 diagnosis fixes wired: np.argsort(kind='stable') + target force-included at token position 0 for both ctrl and kd. PCA head on controls.
+
+Arm ABC carries `input_space` ∈ {log1p, count}; `knockdown_u_z` applies the right scaling.
+
+## 2026-09-30 — B2: feasibility gate harness committed
+
+`experiments/exp1b_statespace_benchmark/feasibility.py` (commit `29879cc`). Five clauses:
+- (a) determinism — identical input twice gives max |Δ| < 1e-6.
+- (b) negative control — a gene with zero counts in all controls gives ‖u_z‖ < 1e-6.
+- (c) non-triviality — ‖u_z‖ at κ=0.7 above the cell-sampling noise floor across 20 random disjoint 50-cell subset pairs.
+- (d) stability — mean subset cos > 0.9; cross-seed cos reported for VAE arms.
+- (e) dose-grading — ‖u_z‖ increases with κ ∈ {0.5, 0.7, 0.9}.
+Targets: q10, q30, q50, q70, q90 (control log1p-mean quantiles) + CDC27.
+
+## 2026-09-30 — B3: PREREG_exp1b.md committed before any fit
+
+`experiments/exp1b_statespace_benchmark/PREREG_exp1b.md` (commit `29879cc`). Reference arm = FA(QR) (scJDO default; Part A corrections showed PCA ≡ FA(QR) within fold SDs on all three screens). Pass criterion per §7; ladder comparisons per §8; secondary Spearman per §9; leakage per §11; expected outcome per §12; stop rule per §13.
+
+## 2026-09-30 — B4 compute estimate (reporting + STOP before full benchmark)
+
+Local machine capabilities:
+- scvi-tools 1.5.0.post1, torch 2.10.0, Apple MPS available (CUDA not available).
+
+### Feasibility gate (B4 phase 1, local)
+
+Per (arm × screen):
+- **Linear arms** (PCA, FA(QR), LDVAE-loadings): fit ≤ 30 s; gate ≤ 1 min. ~5 min each.
+- **VAE arms** (LDVAE-encoder, scVI): train 100 epochs on NT controls (feasibility; full benchmark uses 400) → ~5–15 min per screen per training on MPS. Gate adds ~2 min. ~15 min per arm per screen; ×3 training seeds for the (d) cross-seed clause.
+- **scGPT arms** (fixed-ingestion, random-weights): checkpoint load ~5 min; PCA-head fit on controls ~5 min; gate = 6 targets × 3 κ × (2 encodes for the primary u_z + 2 × 20 encodes for the between-subset pairs) ≈ 240 encodes at 50 cells each ≈ **4 h per scGPT arm per screen on local CPU** (MPS not implemented in `ScGPTRep`). Mitigations possible: `max_seq_len = 512` (half the budget), 10 subset pairs instead of 20, 50-cell subsets reduced to 25. Each would cut scGPT feasibility to ~1 h per arm per screen.
+
+**Feasibility total (as spec'd, local):**
+- Linear × 7 (3 PCA/FA/LDVAE-load × 3 screens): ~0.5 h
+- VAE × 2 arms × 3 screens × 3 seeds: ~5 h on MPS
+- scGPT × 2 arms × 3 screens: **~24 h on local CPU** (dominant cost)
+- Grand total: **~30 h local**.
+
+### Full benchmark (B4 phase 2, GATED on user confirmation)
+
+Per (arm × screen × seed):
+- Linear arms: nested CV + matched-linear sims < 5 min each.
+- VAE arms: 400-epoch training (3× feasibility epochs) + nested CV. ~30 min per training on MPS, ~2 min nested CV. × 3 seeds × 3 screens × 2 VAE arms = **~9 h on MPS**.
+- scGPT: nested CV + matched-linear sims on frozen embeddings. The expensive part is building the embeddings once per screen (already cached from feasibility), after which per-fold is cheap. ~2 h extra per screen per scGPT arm after feasibility caches.
+
+**Full benchmark total (local):**
+- Linear nested CV: ~0.5 h
+- VAE: ~9 h on MPS
+- scGPT: ~12 h additional on local CPU after feasibility caches
+- Grand total: **~22 h on local**, dominated by scGPT.
+
+**On a single CUDA GPU (A100-class):**
+- VAE: ~1 h total (parallelisable across seeds; scvi-tools has mixed MPS/CUDA perf but CUDA is the mature path)
+- scGPT: ~2 h total (batched embedding + nested CV)
+- Full benchmark: **~3 h on cluster GPU**.
+
+### STOP (per PREREG § 14)
+
+Awaiting user confirmation on compute venue. Three natural options:
+
+1. **Local only, as-spec'd.** ~30 h feasibility + ~22 h full benchmark = ~2 days. Feasible but blocks the laptop.
+2. **Local with scGPT reductions.** Use `max_seq_len=512` + 10 subset pairs for the gate; keep κ grid and target quantiles. Cuts feasibility to ~6 h, full benchmark unchanged (~22 h) unless the same reduction applies there (it would make the forward-task comparisons weaker). Report both.
+3. **Cluster CUDA GPU for everything.** Est. 3–4 h total. Requires scp'ing the h5ads + scGPT checkpoint to the cluster node (K562 10 GB + RPE1 8 GB + Jost 500 MB + scGPT 2 GB).
+
+Not launching anything until the user picks.
+
+`experiments/exp1b_statespace_benchmark/run_feasibility.py` is in place (commit TBD) with `load_screen(...)` left as a stub; populate before launch (mirror `reproduction/55_fa_table1_recheck.py`'s HVG + force-included recipe) and set `ARMS`/`SCREENS` to the user-approved subset.
