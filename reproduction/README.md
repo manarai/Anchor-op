@@ -1,6 +1,6 @@
 # Reproduction of manuscript figures and analyses
 
-Every figure, table, and numeric claim in `../MANUSCRIPT.md` (v0.3.3 journal version; v0.3.2 is the bioRxiv preprint tag) is reproduced by scripts in this directory. Every script has a top-of-file docstring describing what it computes; the tables below are the entry-point map.
+Every figure, table, and numeric claim in `../MANUSCRIPT.md` (v0.3.4 journal version; v0.3.2 is the bioRxiv preprint tag) is reproduced by scripts in this directory. Every script has a top-of-file docstring describing what it computes; the tables below are the entry-point map.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ PYTHONPATH=src python3 reproduction/run_all.sh    # runs everything, skips scrip
 
 Output PNGs land in `../manuscript_figures/`. Recheck JSONs land in `../results/recheck/`. Every script prints its output paths and any numeric summary it computes. All scripts fix `SEED` at the top and are deterministic.
 
-## Manuscript figures and tables → script map (v0.3.3)
+## Manuscript figures and tables → script map (v0.3.4)
 
 The current preprint has 6 main-text figures + 2 supplementary figures, all rendered by `50_build_figures.py` from JSONs written by the recheck / comparator scripts. This map is authoritative for what the paper actually shows.
 
@@ -38,7 +38,7 @@ To rebuild every figure from the JSONs already checked into `results/recheck/`:
 PYTHONPATH=src python3 reproduction/50_build_figures.py
 ```
 
-## Recheck / audit-response scripts (v0.2.x → v0.3.3)
+## Recheck / audit-response scripts (v0.2.x → v0.3.4)
 
 These are the scripts that wrote the JSONs feeding the manuscript. They are numbered in the order they were added to the audit trail.
 
@@ -62,8 +62,8 @@ These are the scripts that wrote the JSONs feeding the manuscript. They are numb
 | `52_positive_control_ensembles.py` | `F_step2_ensembles.json` | Replogle + Jost pkls | ~10 min |
 | `53_random_panel_distribution.py` | `F_step3_random_panels.json`, `results/k562_all_targets_measurement.pkl` | K562 h5ad (10 GB) | ~30 min |
 | `54_learned_encoding_fidelity.py` | `F_step5_learned_fidelity.json` | K562 h5ad (10 GB) | ~20 min |
-| `55_fa_table1_recheck.py` | `F_fa_nested_cv_rho.json`, `{k562,rpe1,jost}_essential_fa_measurement.pkl` + `jost_fa_measurement.pkl` | K562 h5ad (10 GB) + RPE1 h5ad (8 GB) + Jost raw (500 MB) | ~40 min |
-| `56_fa_forward_K562.py` | `F_fa_K562_forward_fixed.json` | `k562_essential_fa_measurement.pkl` | <2 min |
+| `55_fa_table1_recheck.py` | `F_pca_fa_nested_cv_rho.json`, `{k562,rpe1}_essential_pca55_measurement.pkl`, `{k562,rpe1}_essential_fa_measurement.pkl`, `jost_pca55_measurement.pkl`, `jost_fa_measurement.pkl` | K562 h5ad (10 GB) + RPE1 h5ad (8 GB) + Jost raw (500 MB) | ~1 hr |
+| `56_fa_forward_K562.py` | `F_pca_fa_K562_forward_fixed.json` | `k562_essential_{pca55,fa}_measurement.pkl` | <2 min |
 
 ## Pre-v0.3.0 exploratory scripts (00–26)
 

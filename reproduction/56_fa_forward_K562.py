@@ -1,17 +1,20 @@
-"""FA K562 forward comparator (fixed encoding) — companion to 55_fa_table1_recheck.py.
+"""K562 forward comparator (fixed encoding) — PCA vs FA(QR) through the 55_ pipeline.
 
-Journal-version check (NAR GAB, v0.3.3): rerun the Table 3 K562 "fixed" row
-with the FA(d=30) basis instead of PCA(d=30). Produces:
-  - ρ_fwd(forward_fixed_FA)                       — real nested forward ρ
-  - ρ_fwd(training_mean_baseline_FA)              — predict-training-mean baseline
-  - ρ_fwd(forward_fixed_FA_matched_linear)        — matched-SNR linear-truth control
+Companion to 55_fa_table1_recheck.py. For both arms produces:
+  - rho_fwd(forward_fixed)                     — real nested forward rho (+ fold SD)
+  - rho_fwd(training_mean_baseline)            — predict-training-mean baseline
+  - rho_fwd(forward_fixed_matched_linear)      — matched-SNR linear-truth control
 Everything else (K_outer=5, K_inner=3, lambda grid, training-mean intercept,
 seeds) matches 51_comparator_panel.py.
 
-Reads results/k562_essential_fa_measurement.pkl (written by 55_...).
-Writes results/recheck/F_fa_K562_forward_fixed.json.
+Reads:
+  - results/k562_essential_pca55_measurement.pkl
+  - results/k562_essential_fa_measurement.pkl
+  - results/recheck/F_pca_fa_nested_cv_rho.json  (for sigma/alpha_S per arm)
+Writes:
+  - results/recheck/F_pca_fa_K562_forward_fixed.json
 
-Runtime < 2 min on the local box.
+Runtime <2 min.
 """
 from __future__ import annotations
 import json
@@ -28,13 +31,12 @@ RESULTS = REPO / "results"
 OUT = RESULTS / "recheck"
 OUT.mkdir(parents=True, exist_ok=True)
 
-SEED = 20260928  # matches 51_comparator_panel.py
+SEED = 20260928
 N_OUTER = 5
 N_INNER = 3
 N_LIN_SIM = 15
-LAMBDA_GRID = [0.0, 1e-3, 1e-2, 1e-1, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1e3, 1e4, 1e6, 1e30]
-
-BUNDLE = RESULTS / "k562_essential_fa_measurement.pkl"
+LAMBDA_GRID = [0.0, 1e-3, 1e-2, 1e-1, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0,
+               1e3, 1e4, 1e6, 1e30]
 
 
 def _target_folds(target_of_g, k, seed):
@@ -113,11 +115,11 @@ def _training_mean_baseline_forward(S, target_of_g, seed):
 
 
 def _matched_linear_truth_forward(U, target_of_g, sigma, alpha_S, seed, n_reps=N_LIN_SIM):
-    d, m = U.shape
     rhos = []
     for r in range(n_reps):
         rng = np.random.default_rng(seed + r + 9000)
-        J_ref = rng.normal(size=(d, d)) / np.sqrt(d) - 1.5 * np.eye(d)
+        J_ref = rng.normal(size=(U.shape[0], U.shape[0])) / np.sqrt(U.shape[0]) \
+                 - 1.5 * np.eye(U.shape[0])
         J = J_ref / max(alpha_S, 1e-30)
         S_true = -np.linalg.solve(J, U)
         S_sim = S_true + sigma * rng.normal(size=S_true.shape)
@@ -139,14 +141,11 @@ def _guide_targets(meas):
     return out
 
 
-def main():
-    if not BUNDLE.exists():
-        raise SystemExit(f"missing {BUNDLE} — run reproduction/55_fa_table1_recheck.py first")
-
-    print(f"Loading {BUNDLE.name} …", flush=True)
-    with BUNDLE.open("rb") as f:
+def _one_arm(arm_name, bundle_path):
+    print(f"\n--- K562 / {arm_name} ---", flush=True)
+    with Path(bundle_path).open("rb") as f:
         b = pickle.load(f)
-    meas = b["measurement"]; basis = b["basis"]
+    meas = b["measurement"]
     S = meas.S; U = meas.U
     guides = list(meas.report.retained_guides)
     gt_map = _guide_targets(meas)
@@ -154,41 +153,54 @@ def main():
     print(f"  d={S.shape[0]}, m={S.shape[1]}, n_targets={len(set(target_of_g.tolist()))}",
           flush=True)
 
-    # Load sigma_FA + alpha_S_FA from the Table 1 FA output (same bundle).
-    fa_table = json.loads((OUT / "F_fa_nested_cv_rho.json").read_text())
-    k562 = fa_table["datasets"]["K562_essential"]
-    sigma = float(k562["sigma_FA"])
-    alpha_S = float(k562["alpha_S_FA"])
-    print(f"  sigma_FA={sigma:.4f}, alpha_S_FA={alpha_S:.2f}", flush=True)
+    table = json.loads((OUT / "F_pca_fa_nested_cv_rho.json").read_text())
+    k562 = table["datasets"]["K562_essential"][arm_name.upper()]
+    sigma = float(k562["sigma"])
+    alpha_S = float(k562["alpha_S"])
+    print(f"  sigma={sigma:.4f}, alpha_S={alpha_S:.2f}", flush=True)
 
-    print("[K562_FA] forward_fixed (nested ridge, training-mean intercept) …", flush=True)
+    print(f"  forward_fixed …", flush=True)
     forward_fixed = _nested_forward(S, U, target_of_g, SEED)
-    print(f"  rho_fwd = {forward_fixed['rho_pooled']:.4f} "
+    print(f"    rho_fwd = {forward_fixed['rho_pooled']:.4f} "
           f"(fold SD {forward_fixed['per_fold_sd']:.4f})", flush=True)
 
-    print("[K562_FA] training_mean_baseline …", flush=True)
+    print(f"  training_mean_baseline …", flush=True)
     train_mean = _training_mean_baseline_forward(S, target_of_g, SEED)
-    print(f"  rho_fwd = {train_mean['rho_pooled']:.4f} "
+    print(f"    rho_fwd = {train_mean['rho_pooled']:.4f} "
           f"(fold SD {train_mean['per_fold_sd']:.4f})", flush=True)
 
-    print("[K562_FA] matched-SNR linear-truth forward …", flush=True)
+    print(f"  matched-linear-truth forward …", flush=True)
     matched = _matched_linear_truth_forward(U, target_of_g, sigma, alpha_S, SEED)
-    print(f"  rho_fwd = {matched['rho_mean']:.4f} +/- {matched['rho_std']:.4f}", flush=True)
+    print(f"    rho_fwd = {matched['rho_mean']:.4f} +/- {matched['rho_std']:.4f}",
+          flush=True)
+
+    return {
+        "sigma": sigma, "alpha_S": alpha_S,
+        "n_sgRNA": int(len(guides)),
+        "n_targets": int(len(set(target_of_g.tolist()))),
+        "forward_fixed": forward_fixed,
+        "training_mean_baseline": train_mean,
+        "forward_fixed_matched_linear": matched,
+    }
+
+
+def main():
+    pca_bundle = RESULTS / "k562_essential_pca55_measurement.pkl"
+    fa_bundle = RESULTS / "k562_essential_fa_measurement.pkl"
+    for p in (pca_bundle, fa_bundle):
+        if not p.exists():
+            raise SystemExit(f"missing {p} — run reproduction/55_fa_table1_recheck.py first")
 
     payload = {
         "seed": SEED,
         "n_outer": N_OUTER, "n_inner": N_INNER,
         "lambda_grid": LAMBDA_GRID,
-        "basis": "FactorAnalysis(n_components=30)",
-        "sigma_FA": sigma,
-        "alpha_S_FA": alpha_S,
-        "n_sgRNA": int(len(guides)),
-        "n_targets": int(len(set(target_of_g.tolist()))),
-        "forward_fixed_FA": forward_fixed,
-        "training_mean_baseline_FA": train_mean,
-        "forward_fixed_FA_matched_linear": matched,
+        "arms": {},
     }
-    out_path = OUT / "F_fa_K562_forward_fixed.json"
+    payload["arms"]["PCA"] = _one_arm("pca", pca_bundle)
+    payload["arms"]["FA"] = _one_arm("fa", fa_bundle)
+
+    out_path = OUT / "F_pca_fa_K562_forward_fixed.json"
     out_path.write_text(json.dumps(payload, indent=2))
     print(f"\nsaved: {out_path}", flush=True)
 

@@ -105,7 +105,7 @@ At d = 5, where the identifiability regime is comfortably overdetermined, the ma
 
 **Input-space robustness (log-normalized counts).** The failure also survives switching the K562 input from Replogle's z-scored residuals to log1p-normalized raw counts: refitting the whole pipeline on log1p counts and re-anchoring σ and α_S in that basis gives real nested-CV ρ 0.92 vs matched linear-truth 0.08 (branch `experiments/exp1-statespace` A2b).
 
-**Embedding-choice robustness (factor analysis).** A companion method (scJDO; manuscript in review) selects FA as its default state-space embedding, so a reviewer may ask whether the choice of PCA drives the result here. Replacing the d = 30 PCA basis with an FA(d = 30) basis fit on non-targeting controls — same HVG, filters, and seeds, with σ and α_S re-derived in the FA basis — reproduces the Table 1 pattern on all three screens: real nested-CV ρ at the predict-zero regime (0.88 / 0.99 / 1.00) and matched linear-truth ρ well below (0.08 / 0.22 / 0.50). Supplementary Table S3 reports the full FA numbers alongside PCA.
+**Embedding-choice robustness (factor analysis).** A companion method (scJDO; manuscript in review) selects FA as its default state-space embedding, so a reviewer may ask whether the choice of PCA drives the result here. Replacing the d = 30 PCA basis with an FA(d = 30) basis fit on non-targeting controls — same HVG, filters, and seeds, with QR-orthonormalized loadings so the two bases are on the same geometric footing, and with σ and α_S re-derived in the FA basis — reproduces the Table 1 pattern on all three screens: real nested-CV ρ at the predict-zero regime (0.968 / 1.003 / 1.000) and matched linear-truth ρ well below (0.120 / 0.289 / 0.755). PCA re-run through the identical pipeline gives 0.964 / 1.004 / 0.998 real vs 0.125 / 0.282 / 0.726 matched. Supplementary Table S3 reports both arms side-by-side with per-outer-fold SDs.
 
 ![](manuscript_figures/fig4_robustness.png)
 
@@ -270,7 +270,7 @@ Replogle et al. 2022: gwps.wi.mit.edu / Figshare Plus deposit 20029387 (K562 ess
 
 ### 4.10 Code availability
 
-Source code is available under the MIT License at the anchor-op repository, release v0.3.3 (journal version; v0.3.2 is the bioRxiv preprint tag) https://github.com/manarai/Anchor-op. A pinned conda `environment.yml` (Python 3.11), a 59-test pytest suite, per-figure regeneration scripts, and the learned-encoding fidelity script (`reproduction/54_learned_encoding_fidelity.py`, a Python port of `solve_y_axb` from Ahlmann-Eltze et al. 2025's linear-baseline code) are shipped with the release, together with every JSON that a numeric claim traces to. Every numeric claim in this manuscript that is not derived in the text has an entry in `results/recheck/number_provenance.csv` giving the value stored in a JSON in `results/recheck/`, the reproduction script that produced it, and a note on rounding where applicable. Round-form numbers cited in the abstract and Results are drawn from the un-rounded values in that table.
+Source code is available under the MIT License at the anchor-op repository, release v0.3.4 (journal version; v0.3.2 is the bioRxiv preprint tag; v0.3.3 was an intermediate journal tag superseded by v0.3.4 after FA orthonormalization and a parallel-pipeline PCA baseline were added) https://github.com/manarai/Anchor-op. A pinned conda `environment.yml` (Python 3.11), a 59-test pytest suite, per-figure regeneration scripts, and the learned-encoding fidelity script (`reproduction/54_learned_encoding_fidelity.py`, a Python port of `solve_y_axb` from Ahlmann-Eltze et al. 2025's linear-baseline code) are shipped with the release, together with every JSON that a numeric claim traces to. Every numeric claim in this manuscript that is not derived in the text has an entry in `results/recheck/number_provenance.csv` giving the value stored in a JSON in `results/recheck/`, the reproduction script that produced it, and a note on rounding where applicable. Round-form numbers cited in the abstract and Results are drawn from the un-rounded values in that table.
 
 ## Author contributions
 
@@ -328,15 +328,24 @@ The authors drove the main scientific idea and the coding analysis. Generative A
 
 **Supplementary Figure S2.** Positive-control ensembles at matched SNR. *(top row)* Linear-truth nested-CV ρ per (screen × ensemble); all cells beat predict-zero (ρ < 1) across dense, sparse-10 %, sparse-2 %, rank-5, and block-modular ground truths on K562 essential, RPE1 essential, and Jost 2020. *(bottom row)* Interaction-only Frobenius cosine vs the cross-replicate paired null.
 
-**Supplementary Table S3. Table 1 under an FA(d = 30) basis fit on non-targeting controls (journal-version robustness check).** Same HVG, filters, outer/inner folds, rank grid including 0, and N = 15 matched-SNR linear-truth reps as Table 1. σ bootstrapped by within-guide split-half (§4.4) and α_S derived by matched-median column-norm against a dense J_ref — both re-anchored in the FA basis. For comparison, the PCA(d = 30) row from Table 1 is reproduced in grey. The qualitative pattern — real ρ at the predict-zero regime, matched linear-truth ρ well below — holds on all three screens; §2.3 (embedding-choice robustness) cites this table.
+**Supplementary Table S3. Table 1 under PCA(d = 30) vs FA(d = 30, QR-orthonormalized) through the SAME pipeline (journal-version robustness check).** Same HVG, filters, outer/inner folds, rank grid including 0, and N = 15 matched-SNR linear-truth reps as Table 1. σ bootstrapped by within-guide split-half (§4.4) and α_S derived by matched-median column-norm against a dense J_ref — both re-anchored in each arm's basis. FA loadings are QR-orthonormalized so the two bases have the same per-coordinate scale (an earlier pre-correction run that used `fa.components_.T` directly gave FA an apparent gap advantage that was purely a scale artifact — scripts `reproduction/55_` and `/56_` as of v0.3.3 record the orthonormalization). The qualitative pattern — real ρ at the predict-zero regime, matched linear-truth ρ well below — holds on all three screens under both bases, and the PCA and FA numbers agree within fold SDs; §2.3 (embedding-choice robustness) cites this table.
 
-| Screen (n retained sgRNAs / n targets) | Basis | σ | α_S | Real nested-CV ρ | Matched linear-truth ρ (mean, SD) |
+| Screen (n retained sgRNAs / n targets) | Basis | σ | α_S | Real nested-CV ρ (fold SD) | Matched linear-truth ρ (mean, SD; N=15) |
 |---|---|---:|---:|---:|---:|
-| K562 essential (190 / 190) | **FA(d = 30)** | 0.5632 | 708.69 | **0.8803** | **0.0837 (0.0015)** |
-| K562 essential (188 / 188) | PCA(d = 30) [Table 1] | 0.240 | 369.0 | 0.96 | 0.18 (0.003) |
-| RPE1 essential (159 / 159) | **FA(d = 30)** | 0.6172 | 320.92 | **0.9877** | **0.2168 (0.0046)** |
-| RPE1 essential (153 / 153) | PCA(d = 30) [Table 1] | 0.352 | 199.0 | 1.00 | 0.53 (0.016) |
-| Jost 2020 (122 / 25) | **FA(d = 30)** | 0.0602 | 43.83 | **1.0006** | **0.4976 (0.0149)** |
-| Jost 2020 (122 / 25) | PCA(d = 30) [Table 1] | 0.066 | 29.6 | 1.00 | 0.72 (0.027) |
+| K562 essential (190 / 190) | PCA(d = 30) | 0.1592 | 363.18 | 0.9635 (0.0299) | 0.1251 (0.0024) |
+| K562 essential (190 / 190) | **FA(d = 30, QR)** | 0.1563 | 367.46 | **0.9682 (0.0262)** | **0.1199 (0.0023)** |
+| RPE1 essential (159 / 159) | PCA(d = 30) | 0.1581 | 199.84 | 1.0035 (0.0114) | 0.2815 (0.0053) |
+| RPE1 essential (159 / 159) | **FA(d = 30, QR)** | 0.1561 | 185.21 | **1.0028 (0.0094)** | **0.2887 (0.0072)** |
+| Jost 2020 (122 / 25) | PCA(d = 30) | 0.0641 | 26.75 | 0.9983 (0.0021) | 0.7256 (0.0249) |
+| Jost 2020 (122 / 25) | **FA(d = 30, QR)** | 0.0581 | 21.52 | **1.0002 (0.0009)** | **0.7546 (0.0173)** |
 
-For K562 (forward task, Table 3 fixed-encoding row): under the FA basis, fixed-encoding nested forward ρ_fwd is 0.7233 (fold SD 0.0287) vs the training-mean baseline 0.7605 (fold SD 0.0166), a gap of 0.0372 against the 2 × fold-SD threshold of 0.0332; same preregistered decision as PCA. Matched-linear forward ρ_fwd is 0.1724 (SD 0.0281, N = 15). Data: `results/recheck/F_fa_nested_cv_rho.json` (inverse) and `results/recheck/F_fa_K562_forward_fixed.json` (forward); scripts: `reproduction/55_fa_table1_recheck.py` and `reproduction/56_fa_forward_K562.py`.
+*Note on PCA numbers.* The PCA real ρ reproduces Table 1 to within rounding on all three screens (K562: 0.964 vs 0.96; RPE1: 1.004 vs 1.00; Jost: 0.998 vs 1.00). The matched-linear ρ differs from Table 1 on K562 (0.125 vs 0.18) and RPE1 (0.282 vs 0.53) because Table 1 uses σ and α_S from the F1/F2 recheck pipeline (which does not force-include target genes in the HVG set), while this table re-bootstraps σ and re-anchors α_S in the force-included basis used for the measurement. The paper-1 claim — matched-linear ρ well below real ρ, same conclusion on all three screens — is unchanged under the tighter in-basis anchors, and the gap-magnitude pattern per screen is preserved.
+
+**K562 forward task under both arms (companion to Table 3's fixed-encoding row):**
+
+| Arm | ρ_fwd (fixed, fold SD) | ρ_fwd (training-mean, fold SD) | Gap | 2 × fold-SD_tm | Pass? | ρ_fwd (matched-linear, SD; N=15) |
+|---|---:|---:|---:|---:|:-:|---:|
+| PCA(d = 30) | 0.7883 (0.0247) | 0.8380 (0.0161) | 0.0497 | 0.0322 | ✓ | 0.1696 (0.0341) |
+| **FA(d = 30, QR)** | **0.7909 (0.0262)** | **0.8379 (0.0163)** | **0.0470** | **0.0326** | **✓** | **0.1478 (0.0226)** |
+
+Both arms clear the preregistered `beats training-mean by 2 outer-fold SDs` criterion on K562 by essentially the same margin. Data: `results/recheck/F_pca_fa_nested_cv_rho.json` (inverse) and `results/recheck/F_pca_fa_K562_forward_fixed.json` (forward); scripts: `reproduction/55_fa_table1_recheck.py` and `reproduction/56_fa_forward_K562.py`.
