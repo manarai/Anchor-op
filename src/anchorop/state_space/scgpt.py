@@ -53,6 +53,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
+from . import _torchtext_shim  # noqa: F401  — installs torchtext shim before any scgpt import
 from .base import StateSpace
 
 _log = logging.getLogger(__name__)

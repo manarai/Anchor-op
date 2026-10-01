@@ -195,6 +195,49 @@ Deferred follow-up (pending raw-counts download):
 - **scGPT runtime BLOCKED** by a `torchtext` ABI mismatch against torch 2.13. `import scgpt` fails inside `scgpt.tokenizer.gene_tokenizer` on `torchtext._extension._load_lib("libtorchtext")`. The scGPT A4 feasibility check (`check_decode_direction_feasibility`) cannot run until this is resolved. Options for the user listed in `TASK2b_lognorm_input_check.md` §scGPT runtime.
 - Task 4 remains on hold.
 
+## 2026-09-30 — A2b re-anchoring and scGPT state-dict blocker
+
+### A2b: σ, α_S re-anchored on the log1p PCA-30 basis
+
+Script `experiments/exp1_statespace/A2b_reanchored_sigma_alpha.py`.
+Output `A2b_reanchored_sigma_alpha.json`.
+
+- **σ_log1p = 0.0820** (vs preprint K562 σ = 0.240 on the residual basis), via within-guide split-half bootstrap on the log1p PCA-30 basis, median over 188 targets at ≥ 20 cells. The log1p basis has lower per-entry variance than the residual basis.
+- **α_S_log1p = 214.99** (vs preprint K562 α_S = 369 on the residual basis), by matching median column norm of `S_true` to the observed median column norm of `S` on the log1p basis. Observed median `‖S_col‖` = 4.32; baseline (α_S = 1) median = 0.0201.
+- **Real target-held-out ρ = 0.9208 ± 0.0451** (unchanged from A2 — same recipe, same data).
+- **Matched linear-truth ρ with re-anchored σ, α_S = 0.0773 ± 0.0019** (vs 0.1320 with A2's mis-anchored σ = 0.240, α_S = 369; vs 0.1818 on the A1 residual basis).
+
+Reference table (ignoring the scGPT→30 arm, which is still blocked):
+
+| Setting | real ρ | matched-linear ρ | gap | σ | α_S |
+|---|---:|---:|---:|---:|---:|
+| A1 — residual-space PCA-30 (paper 1) | 0.9658 ± 0.0241 | 0.1818 | 0.78 | 0.240 | 369 |
+| A2 — log1p PCA-30, wrong anchors | 0.9208 ± 0.0451 | 0.1320 ± 0.0036 | 0.79 | 0.240 | 369 |
+| **A2b — log1p PCA-30, re-anchored** | **0.9208 ± 0.0451** | **0.0773 ± 0.0019** | **0.84** | **0.0820** | **214.99** |
+
+The paper-1 operator-level failure story not only reproduces on the log1p basis — the re-anchored matched-linear-truth drops to ρ = 0.08, giving a *larger* gap than A1 (0.84 vs 0.78). The log1p basis is better-conditioned for the matched-SNR control. A2b supersedes A2's mis-anchored matched-linear value as the apples-to-apples reference for the Task 4 PCA-lognorm row. **A2b becomes the PCA-30 reference row for Task 4.**
+
+### scGPT runtime — torchtext shim installed; state-dict format mismatch pending
+
+The `torchtext` ABI blocker is resolved by `src/anchorop/state_space/_torchtext_shim.py`, which installs a plain-`dict`-backed `_DictVocab` and `vocab` function in `sys.modules["torchtext"]` before `import scgpt`. `ScGPTRep` now imports the shim on module load. Verified: `import scgpt` succeeds in `anchor-op-scgpt` on CPU macOS.
+
+Loading `scGPT_human/best_model.pt` into a `TransformerModel` instantiated per `args.json` reveals a **state-dict layout mismatch**:
+
+- 34 missing keys of the form `transformer_encoder.layers.N.self_attn.in_proj_{weight,bias}` (the standard PyTorch `nn.MultiheadAttention` fused projection).
+- 25 unexpected keys of the form `transformer_encoder.layers.N.self_attn.Wqkv.{weight,bias}` + `flag_encoder.weight` (the `flash_attn` fused-attention layout).
+
+The checkpoint was trained with `use_fast_transformer: true` (per `args.json`), which uses `flash_attn`. `flash_attn` is a CUDA extension and does not install on macOS CPU, so the standard-torch forward path is the only option here, which uses the `in_proj_*` layout.
+
+A state-dict conversion (`Wqkv.weight` → `in_proj_weight`, `Wqkv.bias` → `in_proj_bias`, with proper Q/K/V slicing on dim 0; and `flag_encoder.weight` either folded into another embedding or dropped) is **tractable but non-trivial** (~ 50–100 LOC, needs testing). Rather than ship an unverified conversion, I stop here per the "stop and tell me" rule on install failures.
+
+Options for the user:
+
+- (D) Write the state-dict conversion in this branch, test on 5 cells, commit. Open to attempting if authorised.
+- (E) Run the scGPT A4 feasibility check on the user's cluster GPU where `flash_attn` is available (would also be the natural venue for Task 4 fitting).
+- (F) Point me at a published scGPT inference script that already handles this conversion.
+
+**Task 4 remains on hold.** The scGPT A4 feasibility check remains on hold pending resolution of (D/E/F). The PCA-lognorm and FA-lognorm arms of Task 4 can run on CPU here under the A2b-anchored recipe once the user authorises.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:
