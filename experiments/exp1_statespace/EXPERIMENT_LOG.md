@@ -285,6 +285,26 @@ Per A4 as revised in PREREG amendment 2: **no workaround**. The scGPT→30 arm c
 
 Task 4 remains on hold. PCA-lognorm and FA-lognorm arms are the two linear arms still eligible under A2b's re-anchored σ and α_S; the user decides whether to proceed with only those arms, re-open scGPT with a workaround that steps outside A4, or close out the experiment with the halt as a reported result.
 
+## 2026-09-30 — closeout plan (surviving context compaction)
+
+The A4 halt stands. The scGPT arm does NOT enter Task 4. Linear-only Task 4 is also NOT run (paper 1 already covers PCA; A2b reproduces it on log1p). Exp1 closes with a **bounded post-hoc diagnosis**, labelled strictly as diagnosis.
+
+In progress / to-do order:
+
+1. ~~**Item 1** (tokenization check on CDC27 + 5 prespecified targets)~~ — **DONE**. See `A4_scgpt_diagnosis.json`. CENPJ (q10) never in top-1200; CDC27 10.5 % drop-out at κ = 0.7; q70 SMC4 55 % drop-out; q90 NCL robust until κ = 0.9.
+2. ~~**Item 2** (correct noise floor on CDC27)~~ — **DONE**. Mean ‖u_z‖ = 0.0319, between-subset norm = 0.0342, **ratio 0.932**. Signal at the cell-sampling noise floor.
+3. ~~**Item 3** (feasibility on 5 prespecified targets)~~ — **DONE**. **0 / 5 pass A4**. NCL (q90) is the best case with min cos = 0.399 (still well below 0.9); other targets' min cosines are negative. See `A4_scgpt_diagnosis.json`.
+4. **Item 4** (force-include CDC27 at token position 0) — **RUNNING**. Trigger fired because CDC27 drop-out at κ = 0.7 = 0.105 > 0.10 threshold. Does the response become graded in κ and stable across subsets when the target is pinned into the token set?
+5. **Item 5** (determinism + negative-control traceback + noise-floor re-expression) — written to `A4_scgpt_item5_determinism.py`, launches after item 4 lands.
+   - (a) Determinism: encode the same 200 control cells twice with identical input. Report max `|Δ|` in 512-d native and 30-d head. Confirm `model.eval()` and `dropout = 0.0`. Report how `np.argsort` ties are broken.
+   - (b) Negative control: CENPJ should give `u_z = 0` exactly (never in token set). Report per-cell `‖E(x_kd) − E(x)‖`. If non-zero, trace through normalization → binning → top-k selection, cell by cell, until the propagating step is identified.
+   - (c) Re-express the item 2 noise floor in light of (a)–(b): is the 0.93 ratio dominated by cell sampling, by pipeline non-determinism, or by both?
+6. **Report** `REPORT_exp1_statespace.md`:
+   - Results: A1 PASS; A2b reproduces paper-1 story on log1p (real 0.92 vs matched-linear 0.08); CELLxGENE leakage = 0 hits; A4 HALT with the diagnosis.
+   - Conclusion scoped to what was tested — one of: (i) tokenization drop-out, (ii) knockdown response indistinguishable from cell-sampling noise, (iii) pipeline artifact or non-determinism. State which with evidence. Include 0 / 5 generality and NCL best case 0.40.
+   - Next-step options for the projection question that avoid this problem (no implementation): gene-space operators restricted to targeted genes; Jost within-target concordance; encoders with continuous-value inputs.
+7. **Commit + push** final diagnosis + report. **Stop. Do NOT merge to main.**
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:
