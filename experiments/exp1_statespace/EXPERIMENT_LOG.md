@@ -173,6 +173,28 @@ Files on disk (download date 2026-09-30):
 
 Note on A4: `input_style = "binned"` combined with `input_emb_style = "continuous"` suggests the embedding path is continuous after binning. The autograd Jacobian path is reported as a sensitivity check once the loader is wired (A4 reporting only; not required for arm admission per the A4 revision).
 
+## PREREG amendment 2 committed — 2026-09-30
+
+Commit hash: **`0af210dc52b4f6442de34ce0f305b0dcb6340963`** on branch `experiments/exp1-statespace`.
+
+Preregistered artefacts in this commit:
+- `src/anchorop/state_space/base.py` — `knockdown_scale_difference(input_space='log1p'|'linear')`.
+- `tests/test_state_space.py` — log1p consistency + residual-zero tests (25 passed, 1 skipped).
+- `experiments/exp1_statespace/EXPERIMENT_LOG.md` — residual-mean verification, CELLxGENE census audit, scGPT_human checkpoint provenance.
+- `experiments/exp1_statespace/PREREG_amendment2.md` — the amendment itself.
+
+Deferred follow-up (pending raw-counts download):
+- `experiments/exp1_statespace/task2b_lognorm_input_check.py` — barcode match + log1p normalisation + non-triviality assertion on 188 target genes.
+- `experiments/exp1_statespace/A2_pca_lognorm_gate.py` — second sanity gate: PCA-lognorm nested CV under the amendment-2 recipe.
+
+## 2026-09-30 — task2b + A2 results + scGPT install blocker
+
+- Raw-counts download complete: `K562_essential_raw_singlecell_01.h5ad` (9.9 GB on disk, 310,385 × 8,563). Same obs columns and var_names as the preprint's residual h5ad.
+- task2b non-triviality: 188/188 targets have ‖u_z‖ > 1e-6 at κ = 0.7 under log1p. Per-gene control-cell |mean| p05 = 0.11, median = 0.53, max = 4.07. **PASS**.
+- A2 PCA-lognorm gate: real ρ = 0.9208 ± 0.0451 (A1 was 0.9658), matched-linear ρ = 0.1320 ± 0.0036 (A1 was 0.1818). Both arms carry the paper-1 operator-level failure story (gap real − matched = 0.79 vs A1's 0.78). The log1p basis is slightly stronger / picks lower ranks (median rank 2 vs A1's 3). Written up in `TASK2b_lognorm_input_check.md` for user review before Task 4.
+- **scGPT runtime BLOCKED** by a `torchtext` ABI mismatch against torch 2.13. `import scgpt` fails inside `scgpt.tokenizer.gene_tokenizer` on `torchtext._extension._load_lib("libtorchtext")`. The scGPT A4 feasibility check (`check_decode_direction_feasibility`) cannot run until this is resolved. Options for the user listed in `TASK2b_lognorm_input_check.md` §scGPT runtime.
+- Task 4 remains on hold.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:
