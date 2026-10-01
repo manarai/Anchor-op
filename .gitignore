@@ -49,3 +49,6 @@ venv/
 
 # OS artifacts
 .DS_Store
+
+# Experiment 1 — large pretrained-model weights are never committed.
+experiments/exp1_statespace/weights/

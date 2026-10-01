@@ -92,6 +92,40 @@ def test_linear_jacobian_is_constant_across_cells(control_matrix, cls, dim):
                                        "it must be constant for a linear encoder.")
 
 
+# ─── A4 (revised) knockdown-scale closed-form check on linear reps ─────
+@pytest.mark.parametrize("cls,dim", [(PCARep, 10), (FARep, 10)])
+@pytest.mark.parametrize("kappa", [0.5, 0.7, 0.9])
+def test_linear_knockdown_scale_matches_minus_kappa_mean_times_Jdelta(
+        control_matrix, cls, dim, kappa):
+    """A4 revision (2026-09-30), linear-arm consistency clause.
+
+    For a linear encoder E(x) = (x − μ)·J.T with J = components_, the
+    knockdown-scale finite difference on control cells reduces to a
+    closed form:
+
+        u_z = (1/n) Σ_i [ E(x_i · scale(g, 1−κ)) − E(x_i) ]
+            = (1/n) Σ_i [ −κ · x_i[g] · J[:, g] ]
+            = −κ · mean(X_ctrl[:, g]) · J[:, g]
+
+    (Equivalently −κ · mean(X_ctrl[:, g]) · (J @ δ_g) where δ_g is
+    the one-hot at the target gene.) When mean(X_ctrl[:, g]) = 1,
+    this reduces to −κ · J @ δ_g, the exact form the reviewer flags.
+    When the data are zero-centred residuals and mean(X_ctrl[:, g]) =
+    0 by construction (the Replogle K562 essential h5ad is one such
+    case), both sides vanish.
+    """
+    rep = cls(dim=dim).fit(control_matrix)
+    g = 7  # arbitrary target
+    u_z_fd = rep.knockdown_scale_difference(control_matrix, g, kappa=kappa)
+    J0 = rep.jacobian(control_matrix)[0]      # (dim, G)
+    xbar_g = control_matrix[:, g].mean()
+    u_z_closed = -kappa * xbar_g * J0[:, g]
+    np.testing.assert_allclose(
+        u_z_fd, u_z_closed, atol=1e-10,
+        err_msg=(f"{rep.name}: knockdown-scale diff does not equal "
+                 "−κ · mean(X_ctrl[:, g]) · J @ δ_g exactly."))
+
+
 # ─── PCARep sanity: encode via mean-centred projection equals sklearn ──
 def test_pcarep_encode_matches_sklearn(control_matrix):
     from sklearn.decomposition import PCA

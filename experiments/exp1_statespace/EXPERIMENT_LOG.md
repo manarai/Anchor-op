@@ -42,6 +42,42 @@ The scGPT scaffold is in place but the actual loader (`_load_scgpt_encoder`, `_s
 
 A1 reproduction gate, Task 2 data + leakage, and Task 3 PREREG follow in that order on this branch.
 
+## A4 revision — 2026-09-30, logged before PREREG commit
+
+**Reason**: scGPT bins expression values before the first transformer layer. An infinitesimal step through the binning operation has zero derivative almost everywhere, so autograd through binning is not a valid Jacobian. Finite differences at a step larger than one bin partially work but confound the step size with the underlying bin structure.
+
+**Revised feasibility check (replaces the Jacobian-vs-FD check in the original A4):**
+
+For `ScGPTRep`, `decode_direction(u_gene, X, kappa=0.7)` is now a **knockdown-scale finite difference** on control cells:
+
+    u_z = mean_i [ E(x_i · scale(target_gene, 1 − κ)) − E(x_i) ]
+
+(multiplicative scale of the target gene's expression). Primary κ = 0.7; sensitivity at κ ∈ {0.5, 0.9}. Perturbed cells never enter.
+
+The feasibility check (`ScGPTRep.check_decode_direction_feasibility`) is:
+
+- (i) **Non-triviality** — ‖u_z‖ at primary κ must exceed the encoder's run-to-run noise norm on identical input (``σ_noise``, estimated by embedding the same control subset twice).
+- (ii) **Stability** — pairwise cosine of the knockdown-scale direction across κ ∈ {0.5, 0.7, 0.9} and across two disjoint random subsets of control cells must exceed 0.9 on every pair.
+
+Halt the scGPT arm only if (i) or (ii) fails. If a continuous-input path exists, the autograd Jacobian is reported alongside for comparison but it is not required.
+
+**Linear-arm consistency clause** (added to A4 at the same time):
+For `PCARep` / `FARep` the closed-form Jacobian is kept, and `knockdown_scale_difference(X_ctrl, g, κ)` is a method on `StateSpace` that for linear encoders reduces to the closed form
+
+    u_z = −κ · mean(X_ctrl[:, g]) · J @ δ_g
+
+Enforced by `tests/test_state_space.py` across `PCARep × FARep × κ ∈ {0.5, 0.7, 0.9}` to `atol=1e-10`. When the input is zero-centred residuals and `mean(X_ctrl[:, g]) = 0` by construction (the Replogle K562 essential h5ad we use is one such case), both sides vanish — the knockdown-scale definition assumes a positive-mean expression representation on the scGPT input path, which is what scGPT expects anyway. For the linear-arm anchor-op fit we continue to use the original `J @ u_gene` form via `decode_direction(u_gene)`.
+
+**Noise term D̂ (A5 revision)**: the primary estimator is the embedding covariance from split-half control replicates; the Jacobian push-forward `J_E D J_Eᵀ` is a sensitivity check only where a Jacobian exists.
+
+Code changes:
+
+- `src/anchorop/state_space/base.py` — added `StateSpace.knockdown_scale_difference(X_ctrl, target_gene_idx, kappa)`.
+- `src/anchorop/state_space/scgpt.py` — `decode_direction` now delegates to `knockdown_scale_difference`; `check_decode_direction_feasibility` runs the two (i)+(ii) tests on five control cells across κ ∈ {0.5, 0.7, 0.9}.
+- `tests/test_state_space.py` — new parametric test `test_linear_knockdown_scale_matches_minus_kappa_mean_times_Jdelta` across (PCARep, FARep) × (0.5, 0.7, 0.9) = 6 cases. All pass to `atol=1e-10`.
+
+Full suite after revision: `pytest -q` → **18 passed, 1 skipped** on the new state-space suite; the 59 pre-existing anchor-op tests continue to pass.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:

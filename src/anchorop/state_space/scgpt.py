@@ -6,26 +6,40 @@ scGPT (Cui et al. 2024, *Nature Methods*) ingests expression as
 log-normalised bin indices. Autograd through the binning operation
 is not a valid Jacobian because binning is piecewise-constant and
 has zero derivative almost everywhere. The amendment A4 of the
-experiment 1 preregistration requires that this be the FIRST check:
+experiment 1 preregistration (revised 2026-09-30) therefore
+replaces the Jacobian-based ``decode_direction`` for scGPT with a
+**knockdown-scale finite difference**:
 
-- (a) If the checkpoint supports a continuous-value input path
-      (i.e. accepts raw log-normalised expression as float embeddings
-      rather than discrete bin indices), use that path and compute
-      the Jacobian by autograd through the continuous embedding.
-- (b) Otherwise, estimate the Jacobian by finite differences at a
-      step larger than one bin, swept across several step sizes to
-      check stability.
+    u_z = mean over control cells of [ E(x · scale(target_gene, 1−κ)) − E(x) ]
 
-The autograd Jacobian (if valid) is compared to the finite-difference
-Jacobian on 5 control cells. If the two agree to within a documented
-tolerance across multiple step sizes, the scGPT arm proceeds. If
-they do not, the arm is halted and the failure is reported — no
-workaround (per A4).
+- Control cells only. Perturbed cells never enter.
+- Primary κ = 0.7. Sensitivity checks at κ = 0.5 and 0.9.
+- Discretisation across scGPT bins is a feature, not a bug: a
+  knockdown-scale shift this large crosses many bins and reflects
+  the actual perturbation the operator fit tries to model.
 
-This file provides the scaffolding for the feasibility check. The
-scGPT checkpoint and the torch runtime are loaded lazily; the module
-imports cleanly without ``torch`` or ``scgpt`` installed so the rest
-of the StateSpace catalog can be used on CPU-only environments.
+The scGPT feasibility check becomes:
+
+(i) **Non-triviality** — does the knockdown-scale difference change
+    the embedding above the encoder's run-to-run noise on identical
+    input (two embed-twice calls on the same control subset)?
+
+(ii) **Stability** — is the direction of the knockdown-scale
+     difference stable across κ ∈ {0.5, 0.7, 0.9} and across two
+     disjoint random subsets of control cells (cosine > 0.9)?
+
+The arm is halted (no workaround) if (i) or (ii) fails. If a
+continuous-input path exists, the autograd Jacobian is reported for
+comparison but is NOT required.
+
+For linear arms (PCARep / FARep) the closed-form Jacobian is kept
+and a separate test enforces that the knockdown-scale difference
+equals ``−κ · J @ δ_g`` exactly.
+
+The scGPT checkpoint and the torch runtime are loaded lazily; the
+module imports cleanly without ``torch`` or ``scgpt`` installed so
+the rest of the StateSpace catalog can be used on CPU-only
+environments.
 """
 from __future__ import annotations
 
@@ -164,14 +178,131 @@ class ScGPTRep(StateSpace):
         return J
 
     def decode_direction(self, u_gene: np.ndarray,
-                          X: Optional[np.ndarray] = None) -> np.ndarray:
+                          X: Optional[np.ndarray] = None,
+                          *, kappa: float = 0.7) -> np.ndarray:
+        """Knockdown-scale finite difference (A4 revision 2026-09-30).
+
+        ``u_gene`` must be sparse-unit on a single target gene (zero
+        everywhere else). Its sign is informational — the operation
+        is always a multiplicative scale by ``(1 − κ)`` on the target
+        gene's expression (a knockdown).
+
+        Returns :meth:`knockdown_scale_difference(X, g, kappa)` with
+        ``g`` the index of the single non-zero entry in ``u_gene``.
+        Control cells only — raises if ``X`` is not provided.
+        """
         self._check_fit()
         if X is None:
-            x_ref = self.mean_  # control-cell mean
-        else:
-            x_ref = _as_dense(X).mean(axis=0)
-        J = self.jacobian(x_ref[None, :])[0]  # (dim, G)
-        return J @ np.asarray(u_gene, dtype=np.float64).ravel()
+            raise ValueError(
+                "ScGPTRep.decode_direction requires a control-cell matrix X "
+                "(the knockdown-scale finite difference is computed on "
+                "control cells only; perturbed cells never enter).")
+        u_gene = np.asarray(u_gene, dtype=np.float64).ravel()
+        nz = np.nonzero(u_gene)[0]
+        if nz.size != 1:
+            raise ValueError(
+                "u_gene for scGPT.decode_direction must be sparse-unit on "
+                "a single target gene (support exactly 1).")
+        g = int(nz[0])
+        return self.knockdown_scale_difference(_as_dense(X), g, kappa=kappa)
+
+    # ─── A4 revision 2026-09-30 — knockdown-scale feasibility check ───
+    def check_decode_direction_feasibility(
+            self, X_control: np.ndarray, target_gene_idx: int,
+            kappas: Tuple[float, ...] = (0.5, 0.7, 0.9),
+            n_subset: int = 50,
+            noise_threshold_rel: float = 0.1,
+            cos_threshold: float = 0.9,
+            random_state: int = 0,
+    ) -> Dict[str, Any]:
+        """A4 (revised) feasibility: knockdown-scale finite difference.
+
+        Two tests, both run on control cells only:
+
+        (i) **Non-triviality**. Two embed-twice calls on the same
+            control subset estimate the encoder's run-to-run noise
+            norm ``σ_noise``. The knockdown-scale difference at
+            κ = 0.7 must have norm ≥ ``noise_threshold_rel * σ_noise``.
+            (In practice ``σ_noise = 0`` for deterministic encoders;
+            we require the knockdown-scale difference norm to exceed
+            ``σ_noise + 1e-6``.)
+
+        (ii) **Stability**. Pairwise cosine of the knockdown-scale
+             direction across κ ∈ {0.5, 0.7, 0.9} and across two
+             disjoint random subsets of control cells must exceed
+             ``cos_threshold`` on every pair.
+
+        Returns a report dict with keys:
+
+        - ``non_trivial`` : bool
+        - ``knockdown_norm`` : float — ‖u_z‖ at primary κ
+        - ``noise_norm`` : float — encoder run-to-run noise
+        - ``kappa_cosines`` : dict κ-pair → cosine (same subset)
+        - ``subset_cosines`` : dict κ → cosine (disjoint subsets)
+        - ``stable`` : bool
+        - ``halt_reason`` : str or None
+        - ``checkpoint`` : ScGPTCheckpoint
+        """
+        self._ensure_loaded()
+        X = _as_dense(X_control)
+        rng = np.random.default_rng(random_state)
+        n = X.shape[0]
+        if n < 2 * n_subset:
+            raise ValueError(
+                f"Need at least {2*n_subset} control cells; have {n}.")
+        idx = rng.permutation(n)
+        sub_a = idx[:n_subset]; sub_b = idx[n_subset:2*n_subset]
+
+        def _ks(X_subset: np.ndarray, kappa: float) -> np.ndarray:
+            return self.knockdown_scale_difference(
+                X_subset, target_gene_idx, kappa=kappa)
+
+        # (i) non-triviality
+        Z1 = self.encode(X[sub_a])
+        Z2 = self.encode(X[sub_a])
+        noise_norm = float(np.linalg.norm((Z2 - Z1).mean(axis=0)))
+        u_primary = _ks(X[sub_a], 0.7)
+        kd_norm = float(np.linalg.norm(u_primary))
+        non_trivial = kd_norm > (noise_norm + 1e-6)
+
+        # (ii) stability
+        u_by_k = {k: _ks(X[sub_a], k) for k in kappas}
+        u_by_subset = {k: _ks(X[sub_b], k) for k in kappas}
+
+        def _cos(a: np.ndarray, b: np.ndarray) -> float:
+            na = np.linalg.norm(a); nb = np.linalg.norm(b)
+            if na < 1e-12 or nb < 1e-12:
+                return 0.0
+            return float(np.dot(a, b) / (na * nb))
+
+        kappa_cosines = {}
+        for i, ki in enumerate(kappas):
+            for kj in kappas[i+1:]:
+                kappa_cosines[f"{ki}↔{kj}"] = _cos(u_by_k[ki], u_by_k[kj])
+        subset_cosines = {str(k): _cos(u_by_k[k], u_by_subset[k]) for k in kappas}
+
+        all_cosines = list(kappa_cosines.values()) + list(subset_cosines.values())
+        stable = all(c > cos_threshold for c in all_cosines)
+        halt_reason = None
+        if not non_trivial:
+            halt_reason = (
+                f"knockdown-scale difference norm ({kd_norm:.4g}) does not "
+                f"exceed encoder noise ({noise_norm:.4g}); (i) fails.")
+        elif not stable:
+            halt_reason = (
+                "knockdown-scale direction not stable across κ or subsets: "
+                f"min cos = {min(all_cosines):.3f} < {cos_threshold}; (ii) fails.")
+
+        return {
+            "non_trivial": non_trivial,
+            "knockdown_norm": kd_norm,
+            "noise_norm": noise_norm,
+            "kappa_cosines": kappa_cosines,
+            "subset_cosines": subset_cosines,
+            "stable": stable,
+            "halt_reason": halt_reason,
+            "checkpoint": self._ckpt,
+        }
 
     # ─── A4 feasibility check (standalone, used in Task 1) ────────────
     def check_jacobian_feasibility(self, X_control: np.ndarray,

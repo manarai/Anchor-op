@@ -89,5 +89,35 @@ class StateSpace(abc.ABC):
         ``J(x_ref) @ u_gene`` at the given ``x_ref``.
         """
 
+    def knockdown_scale_difference(self, X_ctrl: np.ndarray,
+                                    target_gene_idx: int,
+                                    kappa: float = 0.7) -> np.ndarray:
+        """Mean knockdown-scale finite difference on control cells.
+
+        Defined per A4 of the exp1 preregistration (revised 2026-09-30):
+
+            u_z = mean_i [ E(x_i · scale(target_gene, 1 − κ)) − E(x_i) ]
+
+        where the scale is a *multiplicative* factor on the target
+        gene's expression. The default is κ = 0.7; the A4 feasibility
+        check sweeps {0.5, 0.7, 0.9}.
+
+        For linear encoders this has the closed form
+        ``−κ · mean(X_ctrl[:, g]) · J @ δ_g``; the subclasses implement
+        the formulation that works on their encoder (closed form for
+        linear, two forward passes for scGPT).
+
+        The default implementation here uses two :meth:`encode` calls
+        and will be numerically correct for any encoder that supports
+        :meth:`encode` on a modified input matrix.
+        """
+        X_ctrl = np.asarray(X_ctrl, dtype=np.float64)
+        X_perturbed = X_ctrl.copy()
+        X_perturbed[:, target_gene_idx] = (
+            X_perturbed[:, target_gene_idx] * (1.0 - kappa))
+        Z_ctrl = self.encode(X_ctrl)
+        Z_perturbed = self.encode(X_perturbed)
+        return (Z_perturbed - Z_ctrl).mean(axis=0)
+
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"{type(self).__name__}(name={self.name!r}, dim={self.dim})"
