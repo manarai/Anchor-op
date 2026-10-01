@@ -78,6 +78,22 @@ Code changes:
 
 Full suite after revision: `pytest -q` → **18 passed, 1 skipped** on the new state-space suite; the 59 pre-existing anchor-op tests continue to pass.
 
+## PREREG committed — 2026-09-30
+
+Commit hash: **`b04555ea4d71910688ba9b230f7384efa4c2cf20`** on branch `experiments/exp1-statespace`.
+
+Preregistered artefacts: `PREREG_exp1_statespace.md`, `TASK2_data_and_leakage.md`, `A1_reproduction_gate.{py,json}`, this `EXPERIMENT_LOG.md` with the A4 revision subsection. All five files land in the same commit, before any fitting runs.
+
+A1 reproduction gate verdict (recorded in `A1_reproduction_gate.json`): **PASS**. Real K562 target-held-out ρ = 0.9658, matched linear-truth ρ = 0.1818, both within tolerance 0.03 of the preprint's Table 1 reference (0.96, 0.18).
+
+**Task 4 is on hold** until user compute confirmation (per plan). The next steps on this branch (when Task 4 is authorised):
+
+1. `pip install scgpt torch` into the already-created `anchor-op-scgpt` conda env.
+2. Download the `scGPT_human` whole-pretrain checkpoint to `experiments/exp1_statespace/weights/scGPT_human/` (gitignored). Record the SHA-256, source URL, download date, and README text identifying it as the whole-human pretrain (not perturbation-fine-tuned).
+3. Resolve the leakage status (institutional access to Cui et al. 2024 Methods, or CELLxGENE Discover census API query for Replogle 2022 K562 / GSE264667 / Figshare 20029387). Record sources + verdict here.
+4. Run `ScGPTRep.check_decode_direction_feasibility(...)` on 5 K562 non-targeting-control cells; record per-cell cosine table and halt verdict.
+5. Only then run Task 4 (fitting arms × seeds × k) per the PREREG recipe.
+
 ## Leakage check — pending
 
 Grep the scGPT pretraining-corpus manifest (CellxGene + the scGPT README) for:
