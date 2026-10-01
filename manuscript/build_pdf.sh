@@ -16,7 +16,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/.." && pwd)"
 in="$repo/MANUSCRIPT.md"
-out="$here/anchor-op_preprint_v0.3.2.pdf"
+out="$here/anchor-op_journal_v0.3.3.pdf"
 
 pandoc "$in" \
   --pdf-engine=tectonic \

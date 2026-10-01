@@ -1,0 +1,249 @@
+{
+  "seed": 20260927,
+  "n_outer": 5,
+  "n_inner": 3,
+  "rank_grid": [
+    0,
+    1,
+    2,
+    3,
+    5,
+    8,
+    12,
+    16,
+    20,
+    25,
+    30
+  ],
+  "basis": "FactorAnalysis(n_components=30)",
+  "datasets": {
+    "K562_essential": {
+      "n_sgRNA": 190,
+      "n_targets": 190,
+      "sigma_FA": 0.5631546150259028,
+      "alpha_S_FA": 708.6871844575469,
+      "real_nested_cv": {
+        "rho_pooled": 0.8803083377285422,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 5,
+            "n_train": 152,
+            "n_test": 38,
+            "rho_fold": 0.8648566384503432
+          },
+          {
+            "fold": 1,
+            "picked_rank": 5,
+            "n_train": 152,
+            "n_test": 38,
+            "rho_fold": 0.8082738758401552
+          },
+          {
+            "fold": 2,
+            "picked_rank": 5,
+            "n_train": 152,
+            "n_test": 38,
+            "rho_fold": 0.8387227646841849
+          },
+          {
+            "fold": 3,
+            "picked_rank": 5,
+            "n_train": 152,
+            "n_test": 38,
+            "rho_fold": 0.9304911580861
+          },
+          {
+            "fold": 4,
+            "picked_rank": 3,
+            "n_train": 152,
+            "n_test": 38,
+            "rho_fold": 1.0481230774262527
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 3,
+          "median": 5,
+          "max": 5
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.5631546150259028,
+        "alpha_S": 708.6871844575469,
+        "rho_mean": 0.0836940463584412,
+        "rho_std": 0.001481615355773618,
+        "picked_rank_median_summary": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30
+        ]
+      },
+      "fa_noise_variance_mean": 0.9378058860256854
+    },
+    "RPE1_essential": {
+      "n_sgRNA": 159,
+      "n_targets": 159,
+      "sigma_FA": 0.6171694450125345,
+      "alpha_S_FA": 320.9181356819374,
+      "real_nested_cv": {
+        "rho_pooled": 0.9876792428147382,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 1,
+            "n_train": 127,
+            "n_test": 32,
+            "rho_fold": 0.9969345131755605
+          },
+          {
+            "fold": 1,
+            "picked_rank": 1,
+            "n_train": 127,
+            "n_test": 32,
+            "rho_fold": 0.9731068741771052
+          },
+          {
+            "fold": 2,
+            "picked_rank": 1,
+            "n_train": 127,
+            "n_test": 32,
+            "rho_fold": 0.9482443214550645
+          },
+          {
+            "fold": 3,
+            "picked_rank": 2,
+            "n_train": 127,
+            "n_test": 32,
+            "rho_fold": 1.0319951056360945
+          },
+          {
+            "fold": 4,
+            "picked_rank": 1,
+            "n_train": 128,
+            "n_test": 31,
+            "rho_fold": 0.9972249346168547
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 1,
+          "median": 1,
+          "max": 2
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.6171694450125345,
+        "alpha_S": 320.9181356819374,
+        "rho_mean": 0.21684217279362944,
+        "rho_std": 0.004558446510116886,
+        "picked_rank_median_summary": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30
+        ]
+      },
+      "fa_noise_variance_mean": 0.9370436039918629
+    },
+    "Jost_2020": {
+      "n_sgRNA": 122,
+      "n_targets": 25,
+      "sigma_FA": 0.06018135977489025,
+      "alpha_S_FA": 43.834646867855575,
+      "real_nested_cv": {
+        "rho_pooled": 1.0005834511402472,
+        "per_fold": [
+          {
+            "fold": 0,
+            "picked_rank": 0,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 1,
+            "picked_rank": 2,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 1.0023222076326614
+          },
+          {
+            "fold": 2,
+            "picked_rank": 0,
+            "n_train": 98,
+            "n_test": 24,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 3,
+            "picked_rank": 0,
+            "n_train": 99,
+            "n_test": 23,
+            "rho_fold": 1.0
+          },
+          {
+            "fold": 4,
+            "picked_rank": 0,
+            "n_train": 97,
+            "n_test": 25,
+            "rho_fold": 1.0
+          }
+        ],
+        "picked_ranks_summary": {
+          "min": 0,
+          "median": 0,
+          "max": 2
+        }
+      },
+      "linear_truth_matched_alpha_nested_cv": {
+        "n_reps": 15,
+        "sigma": 0.06018135977489025,
+        "alpha_S": 43.834646867855575,
+        "rho_mean": 0.497586904811084,
+        "rho_std": 0.014879459765184655,
+        "picked_rank_median_summary": [
+          16,
+          16,
+          16,
+          20,
+          16,
+          16,
+          20,
+          16,
+          16,
+          16,
+          16,
+          20,
+          16,
+          16,
+          16
+        ]
+      },
+      "fa_noise_variance_mean": 0.01973126667277554
+    }
+  }
+}
